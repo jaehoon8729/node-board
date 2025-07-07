@@ -27,6 +27,13 @@
                     <li class="nav-item">
                         <a class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'board' ? 'active' : '' %>" href="/board">게시판</a>
                     </li>
+                    <% if (locals.user && locals.user.is_admin) { %>
+                        <li class="nav-item">
+                            <a class="nav-link <%= typeof activePage !== 'undefined' && activePage === 'admin' ? 'active' : '' %>" href="/admin">
+                                <i class="bi bi-gear"></i> 관리자
+                            </a>
+                        </li>
+                    <% } %>
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <% if (locals.user) { %>

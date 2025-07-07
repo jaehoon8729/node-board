@@ -50,6 +50,16 @@ module.exports = (sequelize) => {
             allowNull: true,
             comment: '파일 저장 경로'
         },
+        status: {
+            type: DataTypes.ENUM('draft', 'published', 'scheduled'),
+            defaultValue: 'published',
+            comment: '게시글 상태: draft(임시저장), published(발행), scheduled(예약)'
+        },
+        publish_at: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            comment: '발행 예정 일시 (예약 발행용)'
+        },
         views: {
             type: DataTypes.INTEGER,
             defaultValue: 0

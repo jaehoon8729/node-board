@@ -99,8 +99,11 @@ router.get('/', async (req, res) => {
         const search = req.query.search || '';
         const searchType = req.query.searchType || 'title';
         
-        // 검색 조건 설정
-        let whereClause = {};
+        // 검색 조건 설정 (발행된 게시글만 표시)
+        let whereClause = {
+            status: 'published' // 발행된 게시글만 표시
+        };
+        
         if (search) {
             if (searchType === 'title') {
                 whereClause.title = { [Op.like]: `%${search}%` };
@@ -207,9 +210,6 @@ router.get('/:id', async (req, res) => {
     try {
         const postId = req.params.id;
         
-        // 조회수 증가
-        await Post.increment('views', { where: { id: postId } });
-        
         // 게시글 조회
         const post = await Post.findByPk(postId, {
             include: [
@@ -234,6 +234,19 @@ router.get('/:id', async (req, res) => {
         if (!post) {
             req.flash('error', '게시글을 찾을 수 없습니다.');
             return res.redirect('/board');
+        }
+        
+        // 발행되지 않은 게시글은 관리자만 볼 수 있음
+        if (post.status !== 'published') {
+            if (!req.session.user || !req.session.user.is_admin) {
+                req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+                return res.redirect('/board');
+            }
+        }
+        
+        // 발행된 게시글만 조회수 증가
+        if (post.status === 'published') {
+            await Post.increment('views', { where: { id: postId } });
         }
         
         // 권한 체크
@@ -261,6 +274,12 @@ router.get('/:id/edit', isAuthenticated, async (req, res) => {
             return res.redirect('/board');
         }
         
+        // 발행되지 않은 게시글은 관리자만 수정 가능
+        if (post.status !== 'published' && !req.session.user.is_admin) {
+            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+            return res.redirect('/board');
+        }
+        
         // 권한 체크
         if (!checkPermission(req.session.user, post)) {
             req.flash('error', '수정 권한이 없습니다.');
@@ -279,7 +298,7 @@ router.get('/:id/edit', isAuthenticated, async (req, res) => {
 // 게시글 수정 처리
 router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
-        const { title, content, removeFile } = req.body;
+        let { title, content, removeFile } = req.body;
         const post = await Post.findByPk(req.params.id);
         
         if (!post) {
@@ -287,10 +306,25 @@ router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res
             return res.redirect('/board');
         }
         
+        // 발행되지 않은 게시글은 관리자만 수정 가능
+        if (post.status !== 'published' && !req.session.user.is_admin) {
+            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+            return res.redirect('/board');
+        }
+        
         // 권한 체크
         if (!checkPermission(req.session.user, post)) {
             req.flash('error', '수정 권한이 없습니다.');
             return res.redirect(`/board/${post.id}`);
+        }
+        
+        // XSS 방지
+        title = sanitizeInput(title);
+        content = sanitizeInput(content);
+        
+        if (title.length > 200) {
+            req.flash('error', '제목은 200자를 초과할 수 없습니다.');
+            return res.redirect(`/board/${req.params.id}/edit`);
         }
         
         // 업데이트할 데이터 준비
@@ -352,6 +386,12 @@ router.post('/:id/delete', isAuthenticated, async (req, res) => {
             return res.redirect('/board');
         }
         
+        // 발행되지 않은 게시글은 관리자만 삭제 가능
+        if (post.status !== 'published' && !req.session.user.is_admin) {
+            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+            return res.redirect('/board');
+        }
+        
         // 권한 체크
         if (!checkPermission(req.session.user, post)) {
             req.flash('error', '삭제 권한이 없습니다.');
@@ -387,6 +427,14 @@ router.get('/download/:id', async (req, res) => {
         if (!post || !post.file_path) {
             req.flash('error', '파일을 찾을 수 없습니다.');
             return res.redirect('/board');
+        }
+        
+        // 발행되지 않은 게시글의 파일은 관리자만 다운로드 가능
+        if (post.status !== 'published') {
+            if (!req.session.user || !req.session.user.is_admin) {
+                req.flash('error', '해당 파일에 접근할 권한이 없습니다.');
+                return res.redirect('/board');
+            }
         }
         
         const filePath = path.resolve(post.file_path);

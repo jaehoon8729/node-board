@@ -1,0 +1,226 @@
+<%- include('../partials/header', { title: '관리자 대시보드', activePage: 'admin' }) %>
+
+<div class="row mb-4">
+    <div class="col">
+        <h2>
+            <i class="bi bi-speedometer2"></i> 관리자 대시보드
+        </h2>
+        <p class="text-muted">사이트 통계 및 예약 게시글 관리</p>
+    </div>
+</div>
+
+<!-- 통계 카드들 -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title"><%= stats.totalPosts %></h4>
+                        <p class="card-text">전체 게시글</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-file-text fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title"><%= stats.publishedPosts %></h4>
+                        <p class="card-text">발행된 게시글</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title"><%= stats.scheduledPosts %></h4>
+                        <p class="card-text">예약 게시글</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title"><%= stats.totalUsers %></h4>
+                        <p class="card-text">전체 사용자</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-people fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 관리 메뉴 -->
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> 관리 메뉴
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="/admin/posts/schedule" class="btn btn-outline-primary w-100 p-3">
+                            <i class="bi bi-calendar-plus fs-4 d-block mb-2"></i>
+                            <strong>예약 게시글 작성</strong>
+                            <br>
+                            <small class="text-muted">미리 작성하고 예약 발행</small>
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="/admin/posts/scheduled" class="btn btn-outline-warning w-100 p-3">
+                            <i class="bi bi-clock-history fs-4 d-block mb-2"></i>
+                            <strong>예약 게시글 관리</strong>
+                            <br>
+                            <small class="text-muted">예약된 게시글 조회 및 관리</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 예약된 게시글 -->
+<% if (upcomingPosts.length > 0) { %>
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock"></i> 예정된 게시글
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>제목</th>
+                                    <th>작성자</th>
+                                    <th>발행 예정일</th>
+                                    <th>상태</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% upcomingPosts.forEach(post => { %>
+                                    <tr>
+                                        <td>
+                                            <%= post.title %>
+                                            <% if (post.file_original_name) { %>
+                                                <i class="bi bi-paperclip text-primary ms-1"></i>
+                                            <% } %>
+                                        </td>
+                                        <td><%= post.user.username %></td>
+                                        <td>
+                                            <% if (post.publish_at) { %>
+                                                <%= new Date(post.publish_at).toLocaleString() %>
+                                            <% } else { %>
+                                                <span class="text-muted">-</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (post.status === 'scheduled') { %>
+                                                <span class="badge bg-warning">예약</span>
+                                            <% } else if (post.status === 'draft') { %>
+                                                <span class="badge bg-secondary">임시저장</span>
+                                            <% } %>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<% } %>
+
+<!-- 최근 게시글 -->
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-text"></i> 최근 게시글
+                </h5>
+            </div>
+            <div class="card-body">
+                <% if (recentPosts.length === 0) { %>
+                    <p class="text-muted text-center">게시글이 없습니다.</p>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>제목</th>
+                                    <th>작성자</th>
+                                    <th>상태</th>
+                                    <th>작성일</th>
+                                    <th>조회수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% recentPosts.forEach(post => { %>
+                                    <tr>
+                                        <td>
+                                            <a href="/board/<%= post.id %>" class="text-decoration-none">
+                                                <%= post.title %>
+                                            </a>
+                                            <% if (post.file_original_name) { %>
+                                                <i class="bi bi-paperclip text-primary ms-1"></i>
+                                            <% } %>
+                                        </td>
+                                        <td><%= post.user.username %></td>
+                                        <td>
+                                            <% if (post.status === 'published') { %>
+                                                <span class="badge bg-success">발행</span>
+                                            <% } else if (post.status === 'scheduled') { %>
+                                                <span class="badge bg-warning">예약</span>
+                                            <% } else if (post.status === 'draft') { %>
+                                                <span class="badge bg-secondary">임시저장</span>
+                                            <% } %>
+                                        </td>
+                                        <td><%= new Date(post.created_at).toLocaleDateString() %></td>
+                                        <td><%= post.views %></td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

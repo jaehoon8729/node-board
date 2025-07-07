@@ -82,10 +82,12 @@ app.use((req, res, next) => {
 const authRoutes = require('./routes/auth');
 const boardRoutes = require('./routes/board');
 const commentRoutes = require('./routes/comment');
+const adminRoutes = require('./routes/admin');
 
 app.use('/auth', authRoutes);
 app.use('/board', boardRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/admin', adminRoutes);
 
 // 홈페이지 라우트
 app.get('/', (req, res) => {
@@ -112,6 +114,10 @@ app.use((err, req, res, next) => {
 // 서버 시작
 db.sequelize.sync({ force: false }).then(() => {
     console.log('데이터베이스 연결 성공');
+    
+    // 스케줄러 시작
+    const postScheduler = require('./services/scheduler');
+    postScheduler.start();
     
     // 관리자 계정 생성 (최초 실행시)
     const User = db.User;

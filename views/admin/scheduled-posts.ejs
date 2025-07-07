@@ -1,0 +1,163 @@
+<%- include('../partials/header', { title: '예약 게시글 관리', activePage: 'admin' }) %>
+
+<div class="row">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-clock-history"></i> 예약 게시글 관리
+            </h2>
+            <div>
+                <a href="/admin/posts/schedule" class="btn btn-success me-2">
+                    <i class="bi bi-plus-lg"></i> 새 예약 게시글
+                </a>
+                <a href="/admin" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 대시보드로
+                </a>
+            </div>
+        </div>
+        
+        <% if (scheduledPosts.length === 0) { %>
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-calendar-x fs-1 text-muted mb-3"></i>
+                    <h4 class="text-muted">예약된 게시글이 없습니다</h4>
+                    <p class="text-muted">새로운 예약 게시글을 작성해보세요.</p>
+                    <a href="/admin/posts/schedule" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> 예약 게시글 작성
+                    </a>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list"></i> 
+                        예약/임시저장 게시글 목록 (총 <%= scheduledPosts.length %>개)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">ID</th>
+                                    <th style="width: 40%">제목</th>
+                                    <th style="width: 15%">작성자</th>
+                                    <th style="width: 10%">상태</th>
+                                    <th style="width: 20%">발행 예정일</th>
+                                    <th style="width: 10%">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% scheduledPosts.forEach(post => { %>
+                                    <tr>
+                                        <td><%= post.id %></td>
+                                        <td>
+                                            <strong><%= post.title %></strong>
+                                            <% if (post.file_original_name) { %>
+                                                <% 
+                                                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+                                                    const fileExt = post.file_original_name.toLowerCase().substring(post.file_original_name.lastIndexOf('.'));
+                                                    const isImage = imageExtensions.includes(fileExt);
+                                                %>
+                                                <i class="bi bi-<%= isImage ? 'image text-success' : 'paperclip text-primary' %> ms-1" 
+                                                   title="<%= isImage ? '이미지 첨부' : '파일 첨부' %>"></i>
+                                            <% } %>
+                                            <br>
+                                            <small class="text-muted">
+                                                <%= post.content.substring(0, 50) %><%= post.content.length > 50 ? '...' : '' %>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <i class="bi bi-person"></i>
+                                            <%= post.user.username %>
+                                        </td>
+                                        <td>
+                                            <% if (post.status === 'scheduled') { %>
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-clock"></i> 예약
+                                                </span>
+                                            <% } else if (post.status === 'draft') { %>
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-file-earmark"></i> 임시저장
+                                                </span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <% if (post.publish_at) { %>
+                                                <div class="text-nowrap">
+                                                    <i class="bi bi-calendar"></i>
+                                                    <%= new Date(post.publish_at).toLocaleDateString() %>
+                                                    <br>
+                                                    <i class="bi bi-clock"></i>
+                                                    <%= new Date(post.publish_at).toLocaleTimeString() %>
+                                                </div>
+                                                <% 
+                                                    const now = new Date();
+                                                    const publishTime = new Date(post.publish_at);
+                                                    const timeDiff = publishTime - now;
+                                                    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+                                                    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                                %>
+                                                <% if (timeDiff > 0) { %>
+                                                    <small class="text-success">
+                                                        <% if (days > 0) { %>
+                                                            <%= days %>일 <%= hours %>시간 후
+                                                        <% } else if (hours > 0) { %>
+                                                            <%= hours %>시간 후
+                                                        <% } else { %>
+                                                            곧 발행 예정
+                                                        <% } %>
+                                                    </small>
+                                                <% } else { %>
+                                                    <small class="text-danger">
+                                                        발행 시간 경과
+                                                    </small>
+                                                <% } %>
+                                            <% } else { %>
+                                                <span class="text-muted">-</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group-vertical btn-group-sm" role="group">
+                                                <% if (post.status === 'scheduled') { %>
+                                                    <form action="/admin/posts/<%= post.id %>/action" method="POST" class="d-inline">
+                                                        <input type="hidden" name="action" value="publish_now">
+                                                        <button type="submit" class="btn btn-success btn-sm" 
+                                                                onclick="return confirm('지금 바로 발행하시겠습니까?')">
+                                                            <i class="bi bi-lightning"></i> 즉시발행
+                                                        </button>
+                                                    </form>
+                                                    <form action="/admin/posts/<%= post.id %>/action" method="POST" class="d-inline">
+                                                        <input type="hidden" name="action" value="cancel_schedule">
+                                                        <button type="submit" class="btn btn-warning btn-sm" 
+                                                                onclick="return confirm('예약을 취소하시겠습니까?')">
+                                                            <i class="bi bi-x-circle"></i> 예약취소
+                                                        </button>
+                                                    </form>
+                                                <% } else if (post.status === 'draft') { %>
+                                                    <form action="/admin/posts/<%= post.id %>/action" method="POST" class="d-inline">
+                                                        <input type="hidden" name="action" value="publish_now">
+                                                        <button type="submit" class="btn btn-success btn-sm" 
+                                                                onclick="return confirm('이 게시글을 발행하시겠습니까?')">
+                                                            <i class="bi bi-lightning"></i> 발행
+                                                        </button>
+                                                    </form>
+                                                <% } %>
+                                                <a href="/board/<%= post.id %>" class="btn btn-outline-primary btn-sm" target="_blank">
+                                                    <i class="bi bi-eye"></i> 미리보기
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('../partials/footer') %>

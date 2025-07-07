@@ -4,6 +4,26 @@
     <div class="col-md-8">
         <!-- 게시글 내용 -->
         <div class="card mb-4">
+            <!-- 게시글 상태 표시 (관리자만) -->
+            <% if (locals.user && locals.user.is_admin && post.status !== 'published') { %>
+                <div class="alert alert-<%= post.status === 'scheduled' ? 'warning' : 'info' %> mb-0 rounded-0">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-<%= post.status === 'scheduled' ? 'clock' : 'file-earmark' %> me-2"></i>
+                        <div>
+                            <strong>
+                                <% if (post.status === 'scheduled') { %>
+                                    📅 예약 게시글 - <%= new Date(post.publish_at).toLocaleString() %>에 발행 예정
+                                <% } else if (post.status === 'draft') { %>
+                                    💾 임시저장 게시글 - 아직 발행되지 않음
+                                <% } %>
+                            </strong>
+                            <br>
+                            <small>이 게시글은 관리자만 볼 수 있습니다.</small>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+            
             <div class="card-header bg-white">
                 <h3 class="mb-0"><%= post.title %></h3>
             </div>

@@ -1,0 +1,235 @@
+<%- include('../partials/header', { title: '예약 게시글 작성', activePage: 'admin' }) %>
+
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-calendar-plus"></i> 예약 게시글 작성
+            </h2>
+            <a href="/admin" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> 대시보드로
+            </a>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <form action="/admin/posts/schedule" method="POST" enctype="multipart/form-data" id="scheduleForm">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">제목 *</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               required maxlength="200" autofocus>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">내용 *</label>
+                        <textarea class="form-control" id="content" name="content" 
+                                  rows="12" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="file" class="form-label">첨부파일</label>
+                        <input type="file" class="form-control" id="file" name="file">
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            최대 50MB까지 업로드 가능합니다.
+                        </div>
+                        <div id="fileInfo" class="mt-2"></div>
+                    </div>
+                    
+                    <!-- 발행 옵션 -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="bi bi-gear"></i> 발행 옵션
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="action" 
+                                               id="publish_now" value="publish_now" checked>
+                                        <label class="form-check-label" for="publish_now">
+                                            <i class="bi bi-lightning text-success"></i>
+                                            <strong>즉시 발행</strong>
+                                            <br>
+                                            <small class="text-muted">게시글을 바로 발행합니다</small>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="action" 
+                                               id="save_draft" value="save_draft">
+                                        <label class="form-check-label" for="save_draft">
+                                            <i class="bi bi-file-earmark text-secondary"></i>
+                                            <strong>임시저장</strong>
+                                            <br>
+                                            <small class="text-muted">나중에 발행할 수 있도록 저장</small>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="action" 
+                                               id="schedule" value="schedule">
+                                        <label class="form-check-label" for="schedule">
+                                            <i class="bi bi-clock text-warning"></i>
+                                            <strong>예약 발행</strong>
+                                            <br>
+                                            <small class="text-muted">지정된 시간에 자동 발행</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div id="scheduleOptions" style="display: none;">
+                                        <div class="mb-3">
+                                            <label for="publish_date" class="form-label">발행 날짜</label>
+                                            <input type="date" class="form-control" id="publish_date" 
+                                                   name="publish_date" min="<%= new Date().toISOString().split('T')[0] %>">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="publish_time" class="form-label">발행 시간</label>
+                                            <input type="time" class="form-control" id="publish_time" 
+                                                   name="publish_time">
+                                        </div>
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle"></i>
+                                            <strong>현재 시간:</strong> <span id="currentTime"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="/admin" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> 취소
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-check-lg"></i> 
+                            <span id="submitText">발행하기</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 현재 시간 표시
+    function updateCurrentTime() {
+        const now = new Date();
+        document.getElementById('currentTime').textContent = now.toLocaleString();
+    }
+    
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // 발행 옵션 변경 시 처리
+    document.querySelectorAll('input[name="action"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const scheduleOptions = document.getElementById('scheduleOptions');
+            const submitBtn = document.getElementById('submitText');
+            
+            if (this.value === 'schedule') {
+                scheduleOptions.style.display = 'block';
+                submitBtn.textContent = '예약하기';
+                
+                // 기본값 설정 (현재 시간 + 1시간)
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                
+                document.getElementById('publish_date').value = now.toISOString().split('T')[0];
+                document.getElementById('publish_time').value = now.toTimeString().slice(0, 5);
+            } else {
+                scheduleOptions.style.display = 'none';
+                if (this.value === 'save_draft') {
+                    submitBtn.textContent = '임시저장';
+                } else {
+                    submitBtn.textContent = '발행하기';
+                }
+            }
+        });
+    });
+
+    // 파일 선택 시 미리보기
+    document.getElementById('file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const fileInfo = document.getElementById('fileInfo');
+        
+        if (file) {
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+            const fileName = file.name;
+            const fileExt = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+            const isImage = imageExtensions.includes(fileExt);
+            
+            if (file.size > 50 * 1024 * 1024) {
+                fileInfo.innerHTML = `
+                    <div class="alert alert-danger alert-sm">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        파일 크기가 50MB를 초과합니다. (${fileSize}MB)
+                    </div>
+                `;
+                e.target.value = '';
+            } else {
+                let previewHtml = '';
+                
+                if (isImage) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('imagePreview').innerHTML = `
+                            <div class="text-center mt-2">
+                                <img src="${e.target.result}" alt="미리보기" 
+                                     class="img-fluid rounded shadow-sm" 
+                                     style="max-height: 200px;">
+                            </div>
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                    previewHtml = '<div id="imagePreview"></div>';
+                }
+                
+                fileInfo.innerHTML = `
+                    <div class="alert alert-info alert-sm">
+                        <i class="bi bi-${isImage ? 'image' : 'file-earmark'}"></i>
+                        <strong>${fileName}</strong> (${fileSize}MB)
+                        ${isImage ? '<span class="badge bg-success ms-2">이미지</span>' : ''}
+                    </div>
+                    ${previewHtml}
+                `;
+            }
+        } else {
+            fileInfo.innerHTML = '';
+        }
+    });
+
+    // 폼 제출 시 유효성 검사
+    document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+        const action = document.querySelector('input[name="action"]:checked').value;
+        
+        if (action === 'schedule') {
+            const publishDate = document.getElementById('publish_date').value;
+            const publishTime = document.getElementById('publish_time').value;
+            
+            if (!publishDate || !publishTime) {
+                e.preventDefault();
+                alert('예약 발행을 선택하셨다면 날짜와 시간을 입력해주세요.');
+                return;
+            }
+            
+            const publishDateTime = new Date(`${publishDate}T${publishTime}`);
+            const now = new Date();
+            
+            if (publishDateTime <= now) {
+                e.preventDefault();
+                alert('발행 예정 시간은 현재 시간보다 이후여야 합니다.');
+                return;
+            }
+        }
+    });
+</script>
+
+<%- include('../partials/footer') %>
