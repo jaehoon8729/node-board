@@ -26,7 +26,7 @@ app.use(helmet({
 // Rate Limiting (DOS 공격 방지)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15분
-    max: 100, // 15분당 최대 100개 요청
+    max: 1000, // 15분당 최대 100개 요청
     message: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.',
     standardHeaders: true,
     legacyHeaders: false,

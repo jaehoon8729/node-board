@@ -44,6 +44,16 @@
         60% { content: '..'; }
         90%, 100% { content: '...'; }
     }
+    
+    /* 더보기 버튼 컨테이너가 항상 중앙 정렬되도록 보장 */
+    .text-center {
+        text-align: center !important;
+    }
+    
+    .text-center .load-more-btn {
+        display: inline-block;
+        margin: 0 auto;
+    }
 </style>
 
 <h2 class="mb-4">게시판</h2>
@@ -172,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isLoading) return;
             
             isLoading = true;
-            loadMoreBtn.style.display = 'none';
+            loadMoreBtn.classList.add('d-none');
             loadingSpinner.classList.remove('d-none');
             
             const nextPage = currentPage + 1;
@@ -198,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // 더 불러올 게시글이 있는지 확인
                         if (data.hasMore) {
-                            loadMoreBtn.style.display = 'block';
+                            loadMoreBtn.classList.remove('d-none');
                             document.getElementById('loadMoreCount').textContent = '10';
                         }
                     } else {
@@ -234,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 게시글 행 생성 함수
     function createPostRow(post) {
         const row = document.createElement('tr');
+        row.className = 'post-row new-loaded'; // 애니메이션을 위한 클래스 추가
         
         // 첨부파일 아이콘 처리
         let fileIcon = '';
@@ -264,6 +275,11 @@ document.addEventListener('DOMContentLoaded', function() {
             <td>${createdDate}</td>
             <td>${post.views}</td>
         `;
+        
+        // 애니메이션 시작을 위해 약간의 지연 후 클래스 제거
+        setTimeout(() => {
+            row.classList.remove('new-loaded');
+        }, 100);
         
         return row;
     }
