@@ -1,5 +1,57 @@
 <%- include('../partials/header', { title: '게시글 관리', activePage: 'admin' }) %>
 
+<style>
+    .load-more-btn {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .load-more-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    }
+    
+    .new-loaded {
+        animation: fadeInUp 0.5s ease forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .loading-dots {
+        display: inline-block;
+    }
+    
+    .loading-dots::after {
+        content: '';
+        animation: dots 1.5s infinite;
+    }
+    
+    @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        90%, 100% { content: '...'; }
+    }
+    
+    /* 더보기 버튼 컨테이너가 항상 중앙 정렬되도록 보장 */
+    .text-center {
+        text-align: center !important;
+    }
+    
+    .text-center .load-more-btn {
+        display: inline-block;
+        margin: 0 auto;
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>게시글 관리</h2>
     <div>
@@ -60,7 +112,7 @@
                             <th style="width: 10%">관리</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="postsList">
                         <% posts.forEach(post => { %>
                             <tr>
                                 <td><%= post.id %></td>
@@ -150,32 +202,26 @@
     </div>
 </div>
 
-<!-- 페이지네이션 -->
-<% if (totalPages > 1) { %>
-    <nav class="mt-4">
-        <ul class="pagination justify-content-center">
-            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="?page=<%= currentPage - 1 %>&status=<%= currentStatus %>">
-                    이전
-                </a>
-            </li>
-            
-            <% for (let i = 1; i <= totalPages; i++) { %>
-                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                    <a class="page-link" href="?page=<%= i %>&status=<%= currentStatus %>">
-                        <%= i %>
-                    </a>
-                </li>
-            <% } %>
-            
-            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="?page=<%= currentPage + 1 %>&status=<%= currentStatus %>">
-                    다음
-                </a>
-            </li>
-        </ul>
-    </nav>
+<!-- 더보기 버튼 -->
+<% if (typeof hasMore !== 'undefined' && hasMore) { %>
+    <div class="text-center mt-4">
+        <button type="button" class="btn btn-outline-primary load-more-btn" id="loadMoreBtn">
+            <i class="bi bi-arrow-down-circle me-2"></i>
+            <span id="loadMoreText">더보기</span>
+            <small class="d-block text-muted mt-1">(<span id="loadMoreCount">15</span>개 더 불러오기)</small>
+        </button>
+    </div>
 <% } %>
+
+<!-- 로딩 스피너 -->
+<div class="text-center mt-4 d-none" id="loadingSpinner">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">로딩중...</span>
+    </div>
+    <div class="mt-2 text-muted">
+        게시글을 불러오는 중<span class="loading-dots"></span>
+    </div>
+</div>
 
 <!-- 액션 폼들 (숨김) -->
 <form id="actionForm" method="POST" style="display: none;">
@@ -195,23 +241,206 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('actionForm 찾음:', actionForm);
     
-    // 즉시 발행 버튼들에 이벤트 리스너 추가
-    const publishButtons = document.querySelectorAll('.publish-now-btn');
-    publishButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const postId = this.getAttribute('data-post-id');
-            publishNow(postId);
-        });
-    });
+    // 더보기 기능 변수들
+    let currentPage = <%= currentPage || 1 %>;
+    let isLoading = false;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const postsList = document.getElementById('postsList');
+    const currentStatus = '<%= currentStatus || "all" %>';
     
-    // 삭제 버튼들에 이벤트 리스너 추가
-    const deleteButtons = document.querySelectorAll('.delete-post-btn');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const postId = this.getAttribute('data-post-id');
-            deletePost(postId);
+    // 더보기 버튼 클릭 이벤트
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            loadMoreBtn.classList.add('d-none');
+            loadingSpinner.classList.remove('d-none');
+            
+            const nextPage = currentPage + 1;
+            const searchParams = new URLSearchParams({
+                page: nextPage,
+                status: currentStatus
+            });
+            
+            fetch(`/admin/api/posts?${searchParams}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.posts.length > 0) {
+                        // 새로운 게시글들을 테이블에 추가
+                        data.posts.forEach((post, index) => {
+                            setTimeout(() => {
+                                const row = createPostRow(post);
+                                postsList.appendChild(row);
+                            }, index * 100); // 100ms씩 지연하여 순차 애니메이션
+                        });
+                        
+                        currentPage = nextPage;
+                        
+                        // 더 불러올 게시글이 있는지 확인
+                        if (data.hasMore) {
+                            loadMoreBtn.classList.remove('d-none');
+                            document.getElementById('loadMoreCount').textContent = '15';
+                        }
+                        
+                        // 새로 추가된 버튼들에 이벤트 리스너 추가
+                        attachButtonEvents();
+                    } else {
+                        // 더 이상 불러올 게시글이 없음
+                        const noMoreRow = document.createElement('tr');
+                        noMoreRow.className = 'new-loaded';
+                        noMoreRow.innerHTML = `
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle text-success me-2"></i> 
+                                <strong>모든 게시글을 불러왔습니다.</strong>
+                            </td>
+                        `;
+                        postsList.appendChild(noMoreRow);
+                        
+                        setTimeout(() => {
+                            noMoreRow.classList.remove('new-loaded');
+                        }, 100);
+                    }
+                })
+                .catch(error => {
+                    console.error('게시글 로딩 오류:', error);
+                    alert('게시글을 불러오는데 실패했습니다.');
+                })
+                .finally(() => {
+                    isLoading = false;
+                    loadingSpinner.classList.add('d-none');
+                });
         });
-    });
+    }
+    
+    // 게시글 행 생성 함수
+    function createPostRow(post) {
+        const row = document.createElement('tr');
+        row.className = 'new-loaded'; // 애니메이션을 위한 클래스
+        
+        // 첨부파일 아이콘 처리
+        let fileIcon = '';
+        if (post.file_original_name) {
+            const fileExt = post.file_original_name.toLowerCase().substring(post.file_original_name.lastIndexOf('.'));
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+            const isImage = imageExtensions.includes(fileExt);
+            
+            if (isImage) {
+                fileIcon = '<i class="bi bi-image text-success ms-1" title="이미지 첨부"></i>';
+            } else {
+                fileIcon = '<i class="bi bi-paperclip text-primary ms-1" title="파일 첨부"></i>';
+            }
+        }
+        
+        // 제목과 링크 처리
+        let titleHtml = '';
+        if (post.status === 'published') {
+            titleHtml = `<a href="/board/${post.id}" class="text-decoration-none">${post.title}</a>`;
+        } else {
+            titleHtml = post.title;
+        }
+        
+        // 상태 배지
+        let statusBadge = '';
+        if (post.status === 'published') {
+            statusBadge = '<span class="badge bg-success">발행됨</span>';
+        } else if (post.status === 'scheduled') {
+            statusBadge = '<span class="badge bg-warning">예약중</span>';
+        }
+        
+        // 시간 표시
+        let timeDisplay = '';
+        if (post.publish_at) {
+            timeDisplay = `<small class="text-muted">${new Date(post.publish_at).toLocaleString()}</small>`;
+        } else if (post.status === 'published') {
+            timeDisplay = `<small class="text-muted">${new Date(post.created_at).toLocaleString()}</small>`;
+        } else {
+            timeDisplay = '<span class="text-muted">-</span>';
+        }
+        
+        // 조회수
+        let viewsDisplay = post.status === 'published' ? post.views : '<span class="text-muted">-</span>';
+        
+        // 액션 버튼들
+        let actionButtons = '';
+        if (post.status === 'scheduled') {
+            actionButtons = `
+                <button type="button" class="btn btn-outline-success btn-sm publish-now-btn" 
+                        data-post-id="${post.id}" title="즉시 발행">
+                    <i class="bi bi-send"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
+                        data-post-id="${post.id}" title="삭제">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+        } else {
+            actionButtons = `
+                <a href="/board/${post.id}" class="btn btn-outline-info btn-sm" title="보기">
+                    <i class="bi bi-eye"></i>
+                </a>
+                <a href="/board/${post.id}/edit" class="btn btn-outline-primary btn-sm" title="편집">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
+                        data-post-id="${post.id}" title="삭제">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+        }
+        
+        row.innerHTML = `
+            <td>${post.id}</td>
+            <td>${titleHtml}${fileIcon}</td>
+            <td>${post.username}</td>
+            <td>${statusBadge}</td>
+            <td>${timeDisplay}</td>
+            <td>${viewsDisplay}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    ${actionButtons}
+                </div>
+            </td>
+        `;
+        
+        // 애니메이션 시작을 위해 약간의 지연 후 클래스 제거
+        setTimeout(() => {
+            row.classList.remove('new-loaded');
+        }, 100);
+        
+        return row;
+    }
+    
+    // 버튼 이벤트 리스너 연결 함수
+    function attachButtonEvents() {
+        // 즉시 발행 버튼들에 이벤트 리스너 추가
+        const publishButtons = document.querySelectorAll('.publish-now-btn');
+        publishButtons.forEach(button => {
+            if (!button.hasEventListener) {
+                button.addEventListener('click', function() {
+                    const postId = this.getAttribute('data-post-id');
+                    publishNow(postId);
+                });
+                button.hasEventListener = true;
+            }
+        });
+        
+        // 삭제 버튼들에 이벤트 리스너 추가
+        const deleteButtons = document.querySelectorAll('.delete-post-btn');
+        deleteButtons.forEach(button => {
+            if (!button.hasEventListener) {
+                button.addEventListener('click', function() {
+                    const postId = this.getAttribute('data-post-id');
+                    deletePost(postId);
+                });
+                button.hasEventListener = true;
+            }
+        });
+    }
+    
+    // 초기 버튼 이벤트 연결
+    attachButtonEvents();
 });
 
 // 즉시 발행

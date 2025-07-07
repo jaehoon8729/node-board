@@ -92,6 +92,7 @@ router.get('/posts', isAdmin, async (req, res) => {
         });
 
         const totalPages = Math.ceil(count / limit);
+        const hasMore = count > (page * limit);
 
         // 상태별 개수 조회
         const statusCounts = {
@@ -104,13 +105,86 @@ router.get('/posts', isAdmin, async (req, res) => {
             posts,
             currentPage: page,
             totalPages,
+            hasMore,
             currentStatus: status,
             statusCounts
         });
     } catch (error) {
         console.error('게시글 관리 페이지 오류:', error);
         req.flash('error', '게시글 목록을 불러오는데 실패했습니다.');
-        res.redirect('/admin');
+        
+        // 오류 발생 시 기본값으로 렌더링
+        res.render('admin/posts', {
+            posts: [],
+            currentPage: 1,
+            totalPages: 0,
+            hasMore: false,
+            currentStatus: 'all',
+            statusCounts: {
+                all: 0,
+                published: 0,
+                scheduled: 0
+            }
+        });
+    }
+});
+
+// 게시글 관리 API (더보기용)
+router.get('/api/posts', isAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 15;
+        const offset = (page - 1) * limit;
+        const status = req.query.status || 'all';
+
+        // 상태별 필터링
+        let whereClause = {};
+        if (status !== 'all') {
+            whereClause.status = status;
+        }
+
+        const { count, rows: posts } = await Post.findAndCountAll({
+            where: whereClause,
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['username']
+            }],
+            order: [
+                ['status', 'ASC'], // 예약 게시글을 먼저 표시
+                ['publish_at', 'ASC'], // 예약 시간 순
+                ['created_at', 'DESC'] // 작성 시간 순
+            ],
+            limit,
+            offset
+        });
+
+        const totalPages = Math.ceil(count / limit);
+        const hasMore = page < totalPages;
+
+        res.json({
+            success: true,
+            posts: posts.map(post => ({
+                id: post.id,
+                title: post.title,
+                username: post.user.username,
+                status: post.status,
+                publish_at: post.publish_at,
+                created_at: post.created_at,
+                views: post.views,
+                file_original_name: post.file_original_name
+            })),
+            hasMore,
+            currentPage: page,
+            totalPages
+        });
+
+    } catch (error) {
+        console.error('관리자 게시글 API 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '게시글 목록을 불러오는데 실패했습니다.'
+        });
     }
 });
 
