@@ -53,14 +53,15 @@ class PostScheduler {
             if (scheduledPosts.length > 0) {
                 console.log(`📤 ${scheduledPosts.length}개의 예약 게시글을 발행합니다.`);
 
-                // 예약 게시글들을 published 상태로 변경
+                // 예약 게시글들을 published 상태로 변경하고 created_at을 예약 시간으로 설정
                 for (const post of scheduledPosts) {
                     await post.update({
                         status: 'published',
+                        created_at: post.publish_at, // 등록 시간을 예약된 발행 시간으로 설정
                         publish_at: null
                     });
                     
-                    console.log(`✅ 게시글 "${post.title}" 발행 완료 (ID: ${post.id})`);
+                    console.log(`✅ 게시글 "${post.title}" 발행 완료 (ID: ${post.id}), 등록시간: ${post.publish_at}`);
                 }
             }
         } catch (error) {

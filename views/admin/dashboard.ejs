@@ -87,20 +87,28 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <a href="/admin/posts/schedule" class="btn btn-outline-primary w-100 p-3">
-                            <i class="bi bi-calendar-plus fs-4 d-block mb-2"></i>
-                            <strong>예약 게시글 작성</strong>
+                    <div class="col-md-4 mb-3">
+                        <a href="/admin/posts" class="btn btn-outline-primary w-100 p-3">
+                            <i class="bi bi-files fs-4 d-block mb-2"></i>
+                            <strong>게시글 관리</strong>
                             <br>
-                            <small class="text-muted">미리 작성하고 예약 발행</small>
+                            <small class="text-muted">모든 게시글 조회 및 관리</small>
                         </a>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <a href="/admin/posts/scheduled" class="btn btn-outline-warning w-100 p-3">
-                            <i class="bi bi-clock-history fs-4 d-block mb-2"></i>
-                            <strong>예약 게시글 관리</strong>
+                    <div class="col-md-4 mb-3">
+                        <a href="/board/write" class="btn btn-outline-success w-100 p-3">
+                            <i class="bi bi-pencil-square fs-4 d-block mb-2"></i>
+                            <strong>새 게시글 작성</strong>
                             <br>
-                            <small class="text-muted">예약된 게시글 조회 및 관리</small>
+                            <small class="text-muted">일반/예약 게시글 작성</small>
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="/admin/posts?status=scheduled" class="btn btn-outline-warning w-100 p-3">
+                            <i class="bi bi-clock-history fs-4 d-block mb-2"></i>
+                            <strong>예약 게시글</strong>
+                            <br>
+                            <small class="text-muted">예약된 게시글 관리</small>
                         </a>
                     </div>
                 </div>

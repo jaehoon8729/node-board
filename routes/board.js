@@ -128,11 +128,13 @@ router.get('/', async (req, res) => {
         });
         
         const totalPages = Math.ceil(count / limit);
+        const hasMore = page < totalPages;
         
         res.render('board/list', {
             posts,
             currentPage: page,
             totalPages,
+            hasMore,
             search,
             searchType
         });
@@ -144,6 +146,70 @@ router.get('/', async (req, res) => {
     }
 });
 
+// 게시글 목록 API (더보기용)
+router.get('/api/posts', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+        const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+        const searchType = req.query.searchType || 'title';
+        
+        // 검색 조건 설정 (발행된 게시글만 표시)
+        let whereClause = {
+            status: 'published'
+        };
+        
+        if (search) {
+            if (searchType === 'title') {
+                whereClause.title = { [Op.like]: `%${search}%` };
+            } else if (searchType === 'content') {
+                whereClause.content = { [Op.like]: `%${search}%` };
+            } else if (searchType === 'author') {
+                whereClause['$user.username$'] = { [Op.like]: `%${search}%` };
+            }
+        }
+        
+        // 게시글 조회
+        const { count, rows: posts } = await Post.findAndCountAll({
+            where: whereClause,
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['username']
+            }],
+            order: [['created_at', 'DESC']],
+            limit,
+            offset
+        });
+        
+        const totalPages = Math.ceil(count / limit);
+        const hasMore = page < totalPages;
+        
+        res.json({
+            success: true,
+            posts: posts.map(post => ({
+                id: post.id,
+                title: post.title,
+                username: post.user.username,
+                created_at: post.created_at,
+                views: post.views,
+                file_original_name: post.file_original_name
+            })),
+            hasMore,
+            currentPage: page,
+            totalPages
+        });
+        
+    } catch (error) {
+        console.error('게시글 목록 API 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '게시글 목록을 불러오는데 실패했습니다.'
+        });
+    }
+});
+
 // 게시글 작성 페이지
 router.get('/write', isAuthenticated, (req, res) => {
     res.render('board/write');
@@ -152,7 +218,7 @@ router.get('/write', isAuthenticated, (req, res) => {
 // 게시글 작성 처리
 router.post('/write', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
-        let { title, content } = req.body;
+        let { title, content, publishType, scheduleDate, scheduleTime } = req.body;
         
         // XSS 방지를 위한 입력값 sanitize
         title = sanitizeInput(title);
@@ -175,6 +241,29 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
             user_id: req.session.user.id
         };
         
+        // 발행 타입에 따른 상태 설정
+        if (publishType === 'draft') {
+            postData.status = 'draft';
+        } else if (publishType === 'schedule') {
+            if (!scheduleDate || !scheduleTime) {
+                req.flash('error', '예약 발행을 위해서는 날짜와 시간을 모두 선택해야 합니다.');
+                return res.redirect('/board/write');
+            }
+            
+            const publishAt = new Date(`${scheduleDate}T${scheduleTime}:00`);
+            const now = new Date();
+            
+            if (publishAt <= now) {
+                req.flash('error', '예약 시간은 현재 시간보다 미래여야 합니다.');
+                return res.redirect('/board/write');
+            }
+            
+            postData.status = 'scheduled';
+            postData.publish_at = publishAt;
+        } else {
+            postData.status = 'published';
+        }
+        
         // 파일이 업로드된 경우
         if (req.file) {
             postData.file_original_name = req.file.originalname;
@@ -185,8 +274,23 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
         
         const post = await Post.create(postData);
         
-        req.flash('success', '게시글이 작성되었습니다.');
-        res.redirect(`/board/${post.id}`);
+        // 성공 메시지 설정
+        let successMessage = '게시글이 작성되었습니다.';
+        if (publishType === 'draft') {
+            successMessage = '게시글이 임시 저장되었습니다.';
+        } else if (publishType === 'schedule') {
+            const scheduleDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+            successMessage = `게시글이 ${scheduleDateTime.toLocaleString()}에 발행 예약되었습니다.`;
+        }
+        
+        req.flash('success', successMessage);
+        
+        // 임시저장이나 예약인 경우 관리자 페이지로, 발행인 경우 게시글로 이동
+        if (publishType === 'draft' || publishType === 'schedule') {
+            res.redirect('/admin/posts');
+        } else {
+            res.redirect(`/board/${post.id}`);
+        }
         
     } catch (error) {
         console.error('게시글 작성 오류:', error);

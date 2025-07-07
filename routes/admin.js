@@ -208,27 +208,56 @@ router.post('/posts/schedule', isAdmin, upload.single('file'), async (req, res) 
     }
 });
 
-// 예약 게시글 관리 페이지
-router.get('/posts/scheduled', isAdmin, async (req, res) => {
+// 게시글 관리 페이지 (모든 게시글)
+router.get('/posts', isAdmin, async (req, res) => {
     try {
-        const scheduledPosts = await Post.findAll({
-            where: {
-                status: {
-                    [Op.in]: ['scheduled', 'draft']
-                }
-            },
-            order: [['publish_at', 'ASC'], ['created_at', 'DESC']],
+        const page = parseInt(req.query.page) || 1;
+        const limit = 15;
+        const offset = (page - 1) * limit;
+        const status = req.query.status || 'all';
+
+        // 상태별 필터링
+        let whereClause = {};
+        if (status !== 'all') {
+            whereClause.status = status;
+        }
+
+        const { count, rows: posts } = await Post.findAndCountAll({
+            where: whereClause,
             include: [{
                 model: User,
                 as: 'user',
                 attributes: ['username']
-            }]
+            }],
+            order: [
+                ['status', 'ASC'], // 예약 게시글을 먼저 표시
+                ['publish_at', 'ASC'], // 예약 시간 순
+                ['created_at', 'DESC'] // 작성 시간 순
+            ],
+            limit,
+            offset
         });
 
-        res.render('admin/scheduled-posts', { scheduledPosts });
+        const totalPages = Math.ceil(count / limit);
+
+        // 상태별 개수 조회
+        const statusCounts = {
+            all: await Post.count(),
+            published: await Post.count({ where: { status: 'published' } }),
+            scheduled: await Post.count({ where: { status: 'scheduled' } }),
+            draft: await Post.count({ where: { status: 'draft' } })
+        };
+
+        res.render('admin/posts', {
+            posts,
+            currentPage: page,
+            totalPages,
+            currentStatus: status,
+            statusCounts
+        });
     } catch (error) {
-        console.error('예약 게시글 조회 오류:', error);
-        req.flash('error', '예약 게시글을 불러오는데 실패했습니다.');
+        console.error('게시글 관리 페이지 오류:', error);
+        req.flash('error', '게시글 목록을 불러오는데 실패했습니다.');
         res.redirect('/admin');
     }
 });

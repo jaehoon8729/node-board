@@ -1,20 +1,66 @@
 <%- include('../partials/header', { title: '게시판', activePage: 'board' }) %>
 
+<style>
+    .load-more-btn {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .load-more-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    }
+    
+    .post-row {
+        transition: background-color 0.2s ease;
+    }
+    
+    .post-row.new-loaded {
+        animation: fadeInUp 0.5s ease forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .loading-dots {
+        display: inline-block;
+    }
+    
+    .loading-dots::after {
+        content: '';
+        animation: dots 1.5s infinite;
+    }
+    
+    @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        90%, 100% { content: '...'; }
+    }
+</style>
+
 <h2 class="mb-4">게시판</h2>
 
 <!-- 검색 폼 -->
 <div class="card mb-3">
     <div class="card-body">
-        <form action="/board" method="GET" class="row g-3">
+        <form action="/board" method="GET" class="row g-3" id="searchForm">
             <div class="col-md-3">
-                <select name="searchType" class="form-select">
+                <select name="searchType" class="form-select" id="searchType">
                     <option value="title" <%= searchType === 'title' ? 'selected' : '' %>>제목</option>
                     <option value="content" <%= searchType === 'content' ? 'selected' : '' %>>내용</option>
                     <option value="author" <%= searchType === 'author' ? 'selected' : '' %>>작성자</option>
                 </select>
             </div>
             <div class="col-md-7">
-                <input type="text" name="search" class="form-control" 
+                <input type="text" name="search" class="form-control" id="searchInput"
                        placeholder="검색어를 입력하세요" value="<%= search %>">
             </div>
             <div class="col-md-2">
@@ -49,7 +95,7 @@
                         <th style="width: 10%">조회수</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="postsList">
                     <% if (posts.length === 0) { %>
                         <tr>
                             <td colspan="5" class="text-center py-4 text-muted">
@@ -89,31 +135,144 @@
     </div>
 </div>
 
-<!-- 페이지네이션 -->
-<% if (totalPages > 1) { %>
-    <nav class="mt-4">
-        <ul class="pagination justify-content-center">
-            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="?page=<%= currentPage - 1 %>&search=<%= search %>&searchType=<%= searchType %>">
-                    이전
-                </a>
-            </li>
-            
-            <% for (let i = 1; i <= totalPages; i++) { %>
-                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                    <a class="page-link" href="?page=<%= i %>&search=<%= search %>&searchType=<%= searchType %>">
-                        <%= i %>
-                    </a>
-                </li>
-            <% } %>
-            
-            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="?page=<%= currentPage + 1 %>&search=<%= search %>&searchType=<%= searchType %>">
-                    다음
-                </a>
-            </li>
-        </ul>
-    </nav>
+<!-- 더보기 버튼 -->
+<% if (hasMore) { %>
+    <div class="text-center mt-4">
+        <button type="button" class="btn btn-outline-primary load-more-btn" id="loadMoreBtn">
+            <i class="bi bi-arrow-down-circle me-2"></i>
+            <span id="loadMoreText">더보기</span>
+            <small class="d-block text-muted mt-1">(<span id="loadMoreCount">10</span>개 더 불러오기)</small>
+        </button>
+    </div>
 <% } %>
+
+<!-- 로딩 스피너 -->
+<div class="text-center mt-4 d-none" id="loadingSpinner">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">로딩중...</span>
+    </div>
+    <div class="mt-2 text-muted">
+        게시글을 불러오는 중<span class="loading-dots"></span>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = <%= currentPage %>;
+    let isLoading = false;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const postsList = document.getElementById('postsList');
+    const searchInput = document.getElementById('searchInput');
+    const searchType = document.getElementById('searchType');
+    
+    // 더보기 버튼 클릭 이벤트
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            loadMoreBtn.style.display = 'none';
+            loadingSpinner.classList.remove('d-none');
+            
+            const nextPage = currentPage + 1;
+            const searchParams = new URLSearchParams({
+                page: nextPage,
+                search: searchInput.value || '',
+                searchType: searchType.value || 'title'
+            });
+            
+            fetch(`/board/api/posts?${searchParams}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.posts.length > 0) {
+                        // 새로운 게시글들을 테이블에 추가 (약간의 지연으로 애니메이션 효과)
+                        data.posts.forEach((post, index) => {
+                            setTimeout(() => {
+                                const row = createPostRow(post);
+                                postsList.appendChild(row);
+                            }, index * 100); // 100ms씩 지연하여 순차 애니메이션
+                        });
+                        
+                        currentPage = nextPage;
+                        
+                        // 더 불러올 게시글이 있는지 확인
+                        if (data.hasMore) {
+                            loadMoreBtn.style.display = 'block';
+                            document.getElementById('loadMoreCount').textContent = '10';
+                        }
+                    } else {
+                        // 더 이상 불러올 게시글이 없음
+                        const noMoreRow = document.createElement('tr');
+                        noMoreRow.className = 'post-row new-loaded';
+                        noMoreRow.innerHTML = `
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle text-success me-2"></i> 
+                                <strong>모든 게시글을 불러왔습니다.</strong>
+                                <br>
+                                <small>총 ${currentPage * 10}개의 게시글을 확인했습니다.</small>
+                            </td>
+                        `;
+                        postsList.appendChild(noMoreRow);
+                        
+                        setTimeout(() => {
+                            noMoreRow.classList.remove('new-loaded');
+                        }, 100);
+                    }
+                })
+                .catch(error => {
+                    console.error('게시글 로딩 오류:', error);
+                    alert('게시글을 불러오는데 실패했습니다.');
+                })
+                .finally(() => {
+                    isLoading = false;
+                    loadingSpinner.classList.add('d-none');
+                });
+        });
+    }
+    
+    // 게시글 행 생성 함수
+    function createPostRow(post) {
+        const row = document.createElement('tr');
+        
+        // 첨부파일 아이콘 처리
+        let fileIcon = '';
+        if (post.file_original_name) {
+            const fileExt = post.file_original_name.toLowerCase().substring(post.file_original_name.lastIndexOf('.'));
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+            const isImage = imageExtensions.includes(fileExt);
+            
+            if (isImage) {
+                fileIcon = '<i class="bi bi-image text-success ms-1" title="이미지 첨부"></i>';
+            } else {
+                fileIcon = '<i class="bi bi-paperclip text-primary ms-1" title="파일 첨부"></i>';
+            }
+        }
+        
+        // 날짜 포맷
+        const createdDate = new Date(post.created_at).toLocaleDateString();
+        
+        row.innerHTML = `
+            <td>${post.id}</td>
+            <td>
+                <a href="/board/${post.id}" class="text-decoration-none">
+                    ${post.title}
+                    ${fileIcon}
+                </a>
+            </td>
+            <td>${post.username}</td>
+            <td>${createdDate}</td>
+            <td>${post.views}</td>
+        `;
+        
+        return row;
+    }
+    
+    // 검색 폼 제출 시 페이지 초기화
+    document.getElementById('searchForm').addEventListener('submit', function() {
+        currentPage = 1;
+    });
+});
+</script>
 
 <%- include('../partials/footer') %>
