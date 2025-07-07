@@ -11,7 +11,7 @@
 
 <!-- 통계 카드들 -->
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-primary text-white">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -27,7 +27,7 @@
         </div>
     </div>
     
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-success text-white">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -43,7 +43,7 @@
         </div>
     </div>
     
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-warning text-white">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -53,22 +53,6 @@
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-clock fs-1"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3 mb-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title"><%= stats.totalUsers %></h4>
-                        <p class="card-text">전체 사용자</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="bi bi-people fs-1"></i>
                     </div>
                 </div>
             </div>
@@ -158,8 +142,6 @@
                                         <td>
                                             <% if (post.status === 'scheduled') { %>
                                                 <span class="badge bg-warning">예약</span>
-                                            <% } else if (post.status === 'draft') { %>
-                                                <span class="badge bg-secondary">임시저장</span>
                                             <% } %>
                                         </td>
                                     </tr>
@@ -210,12 +192,10 @@
                                         </td>
                                         <td><%= post.user.username %></td>
                                         <td>
-                                            <% if (post.status === 'published') { %>
-                                                <span class="badge bg-success">발행</span>
-                                            <% } else if (post.status === 'scheduled') { %>
+                                            <% if (post.status === 'scheduled') { %>
                                                 <span class="badge bg-warning">예약</span>
-                                            <% } else if (post.status === 'draft') { %>
-                                                <span class="badge bg-secondary">임시저장</span>
+                                            <% } else if (post.status === 'published') { %>
+                                                <span class="badge bg-success">발행</span>
                                             <% } %>
                                         </td>
                                         <td><%= new Date(post.created_at).toLocaleDateString() %></td>

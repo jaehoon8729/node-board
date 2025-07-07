@@ -34,12 +34,6 @@
                     예약중 <span class="badge bg-warning ms-1"><%= statusCounts.scheduled %></span>
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link <%= currentStatus === 'draft' ? 'active' : '' %>" 
-                   href="/admin/posts?status=draft">
-                    임시저장 <span class="badge bg-info ms-1"><%= statusCounts.draft %></span>
-                </a>
-            </li>
         </ul>
     </div>
 </div>
@@ -98,8 +92,6 @@
                                         <span class="badge bg-success">발행됨</span>
                                     <% } else if (post.status === 'scheduled') { %>
                                         <span class="badge bg-warning">예약중</span>
-                                    <% } else if (post.status === 'draft') { %>
-                                        <span class="badge bg-info">임시저장</span>
                                     <% } %>
                                 </td>
                                 <td>
@@ -126,23 +118,14 @@
                                     <div class="btn-group btn-group-sm">
                                         <% if (post.status === 'scheduled') { %>
                                             <!-- 예약 게시글 액션 -->
-                                            <button type="button" class="btn btn-outline-success btn-sm" 
-                                                    onclick="publishNow(<%= post.id %>)" title="즉시 발행">
+                                            <button type="button" class="btn btn-outline-success btn-sm publish-now-btn" 
+                                                    data-post-id="<%= post.id %>" title="즉시 발행">
                                                 <i class="bi bi-send"></i>
                                             </button>
-                                            <button type="button" class="btn btn-outline-warning btn-sm" 
-                                                    onclick="cancelSchedule(<%= post.id %>)" title="예약 취소">
-                                                <i class="bi bi-x-circle"></i>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
+                                                    data-post-id="<%= post.id %>" title="삭제">
+                                                <i class="bi bi-trash"></i>
                                             </button>
-                                        <% } else if (post.status === 'draft') { %>
-                                            <!-- 임시저장 게시글 액션 -->
-                                            <button type="button" class="btn btn-outline-success btn-sm" 
-                                                    onclick="publishNow(<%= post.id %>)" title="즉시 발행">
-                                                <i class="bi bi-send"></i>
-                                            </button>
-                                            <a href="/board/<%= post.id %>/edit" class="btn btn-outline-primary btn-sm" title="편집">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
                                         <% } else { %>
                                             <!-- 발행된 게시글 액션 -->
                                             <a href="/board/<%= post.id %>" class="btn btn-outline-info btn-sm" title="보기">
@@ -151,13 +134,11 @@
                                             <a href="/board/<%= post.id %>/edit" class="btn btn-outline-primary btn-sm" title="편집">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
+                                                    data-post-id="<%= post.id %>" title="삭제">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
                                         <% } %>
-                                        
-                                        <!-- 삭제 버튼 (모든 상태 공통) -->
-                                        <button type="button" class="btn btn-outline-danger btn-sm" 
-                                                onclick="deletePost(<%= post.id %>)" title="삭제">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -202,33 +183,81 @@
 </form>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('관리자 페이지 JavaScript 로드됨');
+    
+    // 폼이 존재하는지 확인
+    const actionForm = document.getElementById('actionForm');
+    if (!actionForm) {
+        console.error('actionForm을 찾을 수 없습니다.');
+        return;
+    }
+    
+    console.log('actionForm 찾음:', actionForm);
+    
+    // 즉시 발행 버튼들에 이벤트 리스너 추가
+    const publishButtons = document.querySelectorAll('.publish-now-btn');
+    publishButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
+            publishNow(postId);
+        });
+    });
+    
+    // 삭제 버튼들에 이벤트 리스너 추가
+    const deleteButtons = document.querySelectorAll('.delete-post-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
+            deletePost(postId);
+        });
+    });
+});
+
 // 즉시 발행
 function publishNow(postId) {
+    console.log('publishNow 함수 호출됨, postId:', postId);
+    
     if (confirm('게시글을 즉시 발행하시겠습니까?')) {
         const form = document.getElementById('actionForm');
+        if (!form) {
+            console.error('actionForm을 찾을 수 없습니다.');
+            alert('오류가 발생했습니다. 페이지를 새로고침해주세요.');
+            return;
+        }
+        
         form.action = `/admin/posts/${postId}/action`;
         document.getElementById('actionType').value = 'publish_now';
-        form.submit();
-    }
-}
-
-// 예약 취소
-function cancelSchedule(postId) {
-    if (confirm('예약 발행을 취소하고 임시저장으로 변경하시겠습니까?')) {
-        const form = document.getElementById('actionForm');
-        form.action = `/admin/posts/${postId}/action`;
-        document.getElementById('actionType').value = 'cancel_schedule';
+        
+        console.log('폼 제출 중... action:', form.action, 'actionType:', document.getElementById('actionType').value);
         form.submit();
     }
 }
 
 // 게시글 삭제
 function deletePost(postId) {
+    console.log('deletePost 함수 호출됨, postId:', postId);
+    
     if (confirm('정말로 이 게시글을 삭제하시겠습니까?\n삭제된 게시글은 복구할 수 없습니다.')) {
         const form = document.getElementById('actionForm');
-        form.action = `/board/${postId}/delete`;
+        if (!form) {
+            console.error('actionForm을 찾을 수 없습니다.');
+            alert('오류가 발생했습니다. 페이지를 새로고침해주세요.');
+            return;
+        }
+        
+        form.action = `/admin/posts/${postId}/action`;
+        document.getElementById('actionType').value = 'delete';
+        
+        console.log('폼 제출 중... action:', form.action, 'actionType:', document.getElementById('actionType').value);
         form.submit();
     }
+}
+
+// 테스트 함수
+function testButtons() {
+    console.log('버튼 테스트 함수');
+    alert('JavaScript가 정상적으로 작동합니다!');
 }
 </script>
 

@@ -238,13 +238,12 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
         const postData = {
             title,
             content,
-            user_id: req.session.user.id
+            user_id: req.session.user.id,
+            status: 'published' // 기본값은 즉시 발행
         };
         
-        // 발행 타입에 따른 상태 설정
-        if (publishType === 'draft') {
-            postData.status = 'draft';
-        } else if (publishType === 'schedule') {
+        // 예약 발행은 관리자만 가능
+        if (publishType === 'schedule' && req.session.user.is_admin) {
             if (!scheduleDate || !scheduleTime) {
                 req.flash('error', '예약 발행을 위해서는 날짜와 시간을 모두 선택해야 합니다.');
                 return res.redirect('/board/write');
@@ -260,8 +259,6 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
             
             postData.status = 'scheduled';
             postData.publish_at = publishAt;
-        } else {
-            postData.status = 'published';
         }
         
         // 파일이 업로드된 경우
@@ -276,18 +273,16 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
         
         // 성공 메시지 설정
         let successMessage = '게시글이 작성되었습니다.';
-        if (publishType === 'draft') {
-            successMessage = '게시글이 임시 저장되었습니다.';
-        } else if (publishType === 'schedule') {
+        if (postData.status === 'scheduled') {
             const scheduleDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
             successMessage = `게시글이 ${scheduleDateTime.toLocaleString()}에 발행 예약되었습니다.`;
         }
         
         req.flash('success', successMessage);
         
-        // 임시저장이나 예약인 경우 관리자 페이지로, 발행인 경우 게시글로 이동
-        if (publishType === 'draft' || publishType === 'schedule') {
-            res.redirect('/admin/posts');
+        // 예약인 경우 관리자 페이지로, 발행인 경우 게시글로 이동
+        if (postData.status === 'scheduled') {
+            res.redirect('/admin/posts?status=scheduled');
         } else {
             res.redirect(`/board/${post.id}`);
         }
@@ -378,9 +373,9 @@ router.get('/:id/edit', isAuthenticated, async (req, res) => {
             return res.redirect('/board');
         }
         
-        // 발행되지 않은 게시글은 관리자만 수정 가능
-        if (post.status !== 'published' && !req.session.user.is_admin) {
-            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+        // 예약 게시글은 관리자만 수정 가능
+        if (post.status === 'scheduled' && !req.session.user.is_admin) {
+            req.flash('error', '예약 게시글은 관리자만 수정할 수 있습니다.');
             return res.redirect('/board');
         }
         
@@ -410,9 +405,9 @@ router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res
             return res.redirect('/board');
         }
         
-        // 발행되지 않은 게시글은 관리자만 수정 가능
-        if (post.status !== 'published' && !req.session.user.is_admin) {
-            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+        // 예약 게시글은 관리자만 수정 가능
+        if (post.status === 'scheduled' && !req.session.user.is_admin) {
+            req.flash('error', '예약 게시글은 관리자만 수정할 수 있습니다.');
             return res.redirect('/board');
         }
         
@@ -461,7 +456,13 @@ router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res
         await post.update(updateData);
         
         req.flash('success', '게시글이 수정되었습니다.');
-        res.redirect(`/board/${post.id}`);
+        
+        // 예약 게시글인 경우 관리자 페이지로, 아니면 게시글로 이동
+        if (post.status === 'scheduled') {
+            res.redirect('/admin/posts?status=scheduled');
+        } else {
+            res.redirect(`/board/${post.id}`);
+        }
         
     } catch (error) {
         console.error('게시글 수정 오류:', error);
@@ -490,9 +491,9 @@ router.post('/:id/delete', isAuthenticated, async (req, res) => {
             return res.redirect('/board');
         }
         
-        // 발행되지 않은 게시글은 관리자만 삭제 가능
-        if (post.status !== 'published' && !req.session.user.is_admin) {
-            req.flash('error', '해당 게시글에 접근할 권한이 없습니다.');
+        // 예약 게시글은 관리자만 삭제 가능
+        if (post.status === 'scheduled' && !req.session.user.is_admin) {
+            req.flash('error', '예약 게시글은 관리자만 삭제할 수 있습니다.');
             return res.redirect('/board');
         }
         
@@ -514,7 +515,13 @@ router.post('/:id/delete', isAuthenticated, async (req, res) => {
         await post.destroy();
         
         req.flash('success', '게시글이 삭제되었습니다.');
-        res.redirect('/board');
+        
+        // 예약 게시글이었다면 관리자 페이지로, 아니면 게시판으로 이동
+        if (post.status === 'scheduled') {
+            res.redirect('/admin/posts?status=scheduled');
+        } else {
+            res.redirect('/board');
+        }
         
     } catch (error) {
         console.error('게시글 삭제 오류:', error);
@@ -533,10 +540,10 @@ router.get('/download/:id', async (req, res) => {
             return res.redirect('/board');
         }
         
-        // 발행되지 않은 게시글의 파일은 관리자만 다운로드 가능
-        if (post.status !== 'published') {
+        // 예약 게시글의 파일은 관리자만 다운로드 가능
+        if (post.status === 'scheduled') {
             if (!req.session.user || !req.session.user.is_admin) {
-                req.flash('error', '해당 파일에 접근할 권한이 없습니다.');
+                req.flash('error', '예약 게시글의 파일은 관리자만 다운로드할 수 있습니다.');
                 return res.redirect('/board');
             }
         }

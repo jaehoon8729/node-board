@@ -10,6 +10,7 @@ class PostScheduler {
 
     init() {
         // 매분마다 예약된 게시글 확인 (실제 운영에서는 5분 또는 10분 간격 권장)
+        // this.job = cron.schedule('*/5 * * * *', async () => {
         this.job = cron.schedule('* * * * *', async () => {
             await this.publishScheduledPosts();
         }, {
@@ -39,6 +40,7 @@ class PostScheduler {
     async publishScheduledPosts() {
         try {
             const now = new Date();
+            console.log(`🕐 현재 시간: ${now.toLocaleString()}`);
             
             // 현재 시간이 지난 예약 게시글들 찾기
             const scheduledPosts = await Post.findAll({
@@ -50,19 +52,27 @@ class PostScheduler {
                 }
             });
 
+            console.log(`📊 예약 게시글 조회 결과: ${scheduledPosts.length}개`);
+
             if (scheduledPosts.length > 0) {
                 console.log(`📤 ${scheduledPosts.length}개의 예약 게시글을 발행합니다.`);
 
                 // 예약 게시글들을 published 상태로 변경하고 created_at을 예약 시간으로 설정
                 for (const post of scheduledPosts) {
+                    console.log(`📝 처리 중인 게시글: "${post.title}" (ID: ${post.id})`);
+                    console.log(`📅 예약 시간: ${post.publish_at}`);
+                    console.log(`🕐 현재 시간: ${now}`);
+                    
                     await post.update({
                         status: 'published',
                         created_at: post.publish_at, // 등록 시간을 예약된 발행 시간으로 설정
                         publish_at: null
                     });
                     
-                    console.log(`✅ 게시글 "${post.title}" 발행 완료 (ID: ${post.id}), 등록시간: ${post.publish_at}`);
+                    console.log(`✅ 게시글 "${post.title}" 발행 완료 (ID: ${post.id})`);
                 }
+            } else {
+                console.log('📭 발행할 예약 게시글이 없습니다.');
             }
         } catch (error) {
             console.error('❌ 예약 게시글 발행 중 오류:', error);
