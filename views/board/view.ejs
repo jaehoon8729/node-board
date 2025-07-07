@@ -1,0 +1,348 @@
+<%- include('../partials/header', { title: post.title, activePage: 'board' }) %>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- 게시글 내용 -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h3 class="mb-0"><%= post.title %></h3>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between text-muted mb-3">
+                    <div>
+                        <i class="bi bi-person"></i> <%= post.user.username %>
+                    </div>
+                    <div>
+                        <span class="me-3">
+                            <i class="bi bi-calendar"></i> 
+                            <%= new Date(post.created_at).toLocaleString() %>
+                        </span>
+                        <span>
+                            <i class="bi bi-eye"></i> <%= post.views %>
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- 첨부파일 표시 -->
+                <% if (post.file_original_name) { %>
+                    <div class="mb-3 p-3 bg-light rounded">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-paperclip me-2 text-primary"></i>
+                                <span class="fw-medium"><%= post.file_original_name %></span>
+                                <span class="text-muted ms-2">
+                                    (<%= (post.file_size / (1024 * 1024)).toFixed(2) %>MB)
+                                </span>
+                            </div>
+                            <a href="/board/download/<%= post.id %>" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i> 다운로드
+                            </a>
+                        </div>
+                        
+                        <!-- 이미지 파일인 경우 미리보기 -->
+                        <% 
+                            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+                            const fileExt = post.file_original_name.toLowerCase().substring(post.file_original_name.lastIndexOf('.'));
+                            const isImage = imageExtensions.includes(fileExt);
+                        %>
+                        <% if (isImage) { %>
+                            <div class="text-center mt-3">
+                                <img src="/uploads/<%= post.file_name %>" 
+                                     alt="<%= post.file_original_name %>" 
+                                     class="img-fluid rounded shadow-sm"
+                                     style="max-height: 500px; cursor: pointer;"
+                                     onclick="openImageModal(this.src, '<%= post.file_original_name %>')">
+                            </div>
+                        <% } %>
+                    </div>
+                <% } %>
+                
+                <div class="post-content" style="min-height: 200px; white-space: pre-wrap;"><%=
+                    post.content
+                %></div>
+            </div>
+            <div class="card-footer bg-white">
+                <div class="d-flex justify-content-between">
+                    <a href="/board" class="btn btn-secondary btn-sm">
+                        <i class="bi bi-list"></i> 목록
+                    </a>
+                    
+                    <% if (canEdit) { %>
+                        <div>
+                            <a href="/board/<%= post.id %>/edit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-pencil"></i> 수정
+                            </a>
+                            <form action="/board/<%= post.id %>/delete" method="POST" 
+                                  class="d-inline" onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-trash"></i> 삭제
+                                </button>
+                            </form>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 댓글 섹션 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">댓글 (<span id="comment-count"><%= post.comments.length %></span>)</h5>
+            </div>
+            <div class="card-body">
+                <!-- 댓글 작성 폼 -->
+                <% if (locals.user) { %>
+                    <div class="mb-4">
+                        <form id="comment-form">
+                            <div class="mb-2">
+                                <textarea class="form-control" id="comment-content" rows="3" 
+                                          placeholder="댓글을 입력하세요..." required></textarea>
+                            </div>
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-chat-dots"></i> 댓글 작성
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                <% } else { %>
+                    <div class="alert alert-info mb-4">
+                        댓글을 작성하려면 <a href="/auth/login">로그인</a>이 필요합니다.
+                    </div>
+                <% } %>
+                
+                <!-- 댓글 목록 -->
+                <div id="comment-list">
+                    <% if (post.comments.length === 0) { %>
+                        <p class="text-muted text-center" id="no-comments">첫 번째 댓글을 작성해보세요!</p>
+                    <% } else { %>
+                        <% post.comments.forEach(comment => { %>
+                            <div class="comment-item border-bottom pb-3 mb-3" data-comment-id="<%= comment.id %>">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong><%= comment.user.username %></strong>
+                                        <small class="text-muted ms-2">
+                                            <%= new Date(comment.created_at).toLocaleString() %>
+                                        </small>
+                                    </div>
+                                    <% if (locals.user && (locals.user.id === comment.user_id || locals.user.is_admin)) { %>
+                                        <div>
+                                            <button class="btn btn-sm btn-link edit-comment" 
+                                                    data-comment-id="<%= comment.id %>">수정</button>
+                                            <button class="btn btn-sm btn-link text-danger delete-comment" 
+                                                    data-comment-id="<%= comment.id %>">삭제</button>
+                                        </div>
+                                    <% } %>
+                                </div>
+                                <div class="comment-content mt-2"><%= comment.content %></div>
+                                <div class="comment-edit-form d-none">
+                                    <textarea class="form-control mb-2" rows="3"><%= comment.content %></textarea>
+                                    <div class="text-end">
+                                        <button class="btn btn-sm btn-secondary cancel-edit">취소</button>
+                                        <button class="btn btn-sm btn-primary save-edit" 
+                                                data-comment-id="<%= comment.id %>">저장</button>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 이미지 확대보기 모달 -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">이미지 확대보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid rounded">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                <a id="modalDownloadBtn" href="#" class="btn btn-primary">
+                    <i class="bi bi-download"></i> 다운로드
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const postId = <%= post.id %>;
+    const isLoggedIn = <%= locals.user ? 'true' : 'false' %>;
+    const currentUserId = <%= locals.user ? locals.user.id : 'null' %>;
+    const isAdmin = <%= locals.user && locals.user.is_admin ? 'true' : 'false' %>;
+    
+    // 이미지 모달 열기 함수
+    function openImageModal(imageSrc, imageName) {
+        const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+        document.getElementById('modalImage').src = imageSrc;
+        document.getElementById('modalImage').alt = imageName;
+        document.getElementById('imageModalLabel').textContent = imageName;
+        document.getElementById('modalDownloadBtn').href = `/board/download/${postId}`;
+        modal.show();
+    }
+    
+    // 댓글 작성
+    if (isLoggedIn) {
+        document.getElementById('comment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const content = document.getElementById('comment-content').value;
+            
+            try {
+                const response = await fetch('/api/comments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ post_id: postId, content })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 댓글 목록에 추가
+                    const commentList = document.getElementById('comment-list');
+                    const noComments = document.getElementById('no-comments');
+                    if (noComments) noComments.remove();
+                    
+                    const commentHtml = createCommentHtml(data.comment);
+                    commentList.insertAdjacentHTML('afterbegin', commentHtml);
+                    
+                    // 폼 초기화
+                    document.getElementById('comment-content').value = '';
+                    
+                    // 댓글 수 업데이트
+                    const countEl = document.getElementById('comment-count');
+                    countEl.textContent = parseInt(countEl.textContent) + 1;
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('댓글 작성에 실패했습니다.');
+            }
+        });
+    }
+    
+    // 댓글 HTML 생성 함수
+    function createCommentHtml(comment) {
+        const date = new Date(comment.created_at).toLocaleString();
+        const canEdit = currentUserId === comment.user_id || isAdmin;
+        
+        return `
+            <div class="comment-item border-bottom pb-3 mb-3" data-comment-id="${comment.id}">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>${comment.user.username}</strong>
+                        <small class="text-muted ms-2">${date}</small>
+                    </div>
+                    ${canEdit ? `
+                        <div>
+                            <button class="btn btn-sm btn-link edit-comment" 
+                                    data-comment-id="${comment.id}">수정</button>
+                            <button class="btn btn-sm btn-link text-danger delete-comment" 
+                                    data-comment-id="${comment.id}">삭제</button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="comment-content mt-2">${comment.content}</div>
+                <div class="comment-edit-form d-none">
+                    <textarea class="form-control mb-2" rows="3">${comment.content}</textarea>
+                    <div class="text-end">
+                        <button class="btn btn-sm btn-secondary cancel-edit">취소</button>
+                        <button class="btn btn-sm btn-primary save-edit" 
+                                data-comment-id="${comment.id}">저장</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 이벤트 위임을 사용한 댓글 수정/삭제
+    document.getElementById('comment-list').addEventListener('click', async (e) => {
+        // 수정 버튼 클릭
+        if (e.target.classList.contains('edit-comment')) {
+            const commentItem = e.target.closest('.comment-item');
+            commentItem.querySelector('.comment-content').classList.add('d-none');
+            commentItem.querySelector('.comment-edit-form').classList.remove('d-none');
+        }
+        
+        // 수정 취소
+        if (e.target.classList.contains('cancel-edit')) {
+            const commentItem = e.target.closest('.comment-item');
+            commentItem.querySelector('.comment-content').classList.remove('d-none');
+            commentItem.querySelector('.comment-edit-form').classList.add('d-none');
+        }
+        
+        // 수정 저장
+        if (e.target.classList.contains('save-edit')) {
+            const commentId = e.target.dataset.commentId;
+            const commentItem = e.target.closest('.comment-item');
+            const content = commentItem.querySelector('textarea').value;
+            
+            try {
+                const response = await fetch(`/api/comments/${commentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    commentItem.querySelector('.comment-content').textContent = content;
+                    commentItem.querySelector('.comment-content').classList.remove('d-none');
+                    commentItem.querySelector('.comment-edit-form').classList.add('d-none');
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('댓글 수정에 실패했습니다.');
+            }
+        }
+        
+        // 삭제
+        if (e.target.classList.contains('delete-comment')) {
+            if (!confirm('댓글을 삭제하시겠습니까?')) return;
+            
+            const commentId = e.target.dataset.commentId;
+            
+            try {
+                const response = await fetch(`/api/comments/${commentId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    e.target.closest('.comment-item').remove();
+                    
+                    // 댓글 수 업데이트
+                    const countEl = document.getElementById('comment-count');
+                    countEl.textContent = parseInt(countEl.textContent) - 1;
+                    
+                    // 댓글이 없으면 메시지 표시
+                    const commentList = document.getElementById('comment-list');
+                    if (commentList.children.length === 0) {
+                        commentList.innerHTML = '<p class="text-muted text-center" id="no-comments">첫 번째 댓글을 작성해보세요!</p>';
+                    }
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('댓글 삭제에 실패했습니다.');
+            }
+        }
+    });
+</script>
+
+<%- include('../partials/footer') %>

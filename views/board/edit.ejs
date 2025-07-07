@@ -1,0 +1,168 @@
+<%- include('../partials/header', { title: '게시글 수정', activePage: 'board' }) %>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4">게시글 수정</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                <form action="/board/<%= post.id %>/edit" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">제목</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="<%= post.title %>" required maxlength="200">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">내용</label>
+                        <textarea class="form-control" id="content" name="content" 
+                                  rows="10" required><%= post.content %></textarea>
+                    </div>
+                    
+                    <!-- 기존 첨부파일 -->
+                    <% if (post.file_original_name) { %>
+                        <div class="mb-3">
+                            <label class="form-label">현재 첨부파일</label>
+                            <div class="p-3 bg-light rounded">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <% 
+                                            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+                                            const fileExt = post.file_original_name.toLowerCase().substring(post.file_original_name.lastIndexOf('.'));
+                                            const isImage = imageExtensions.includes(fileExt);
+                                        %>
+                                        <i class="bi bi-<%= isImage ? 'image' : 'paperclip' %> me-2 text-primary"></i>
+                                        <span class="fw-medium"><%= post.file_original_name %></span>
+                                        <span class="text-muted ms-2">
+                                            (<%= (post.file_size / (1024 * 1024)).toFixed(2) %>MB)
+                                        </span>
+                                        <% if (isImage) { %>
+                                            <span class="badge bg-success ms-2">이미지</span>
+                                        <% } %>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeFile" name="removeFile" value="true">
+                                        <label class="form-check-label text-danger" for="removeFile">
+                                            파일 삭제
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- 기존 이미지 미리보기 -->
+                                <% if (isImage) { %>
+                                    <div class="text-center mt-3">
+                                        <img src="/uploads/<%= post.file_name %>" 
+                                             alt="<%= post.file_original_name %>" 
+                                             class="img-fluid rounded shadow-sm"
+                                             style="max-height: 200px;">
+                                    </div>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% } %>
+                    
+                    <!-- 새 파일 업로드 -->
+                    <div class="mb-3">
+                        <label for="file" class="form-label">
+                            <% if (post.file_original_name) { %>새 파일 선택<% } else { %>첨부파일<% } %>
+                        </label>
+                        <input type="file" class="form-control" id="file" name="file">
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            최대 50MB까지 업로드 가능합니다.
+                            <% if (post.file_original_name) { %>
+                                새 파일을 선택하면 기존 파일이 교체됩니다.
+                            <% } %>
+                        </div>
+                        <div id="fileInfo" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="/board/<%= post.id %>" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> 취소
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> 수정하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 파일 선택 시 정보 표시 및 이미지 미리보기
+    document.getElementById('file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const fileInfo = document.getElementById('fileInfo');
+        
+        if (file) {
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+            const fileName = file.name;
+            const fileExt = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+            const isImage = imageExtensions.includes(fileExt);
+            
+            if (file.size > 50 * 1024 * 1024) { // 50MB 초과
+                fileInfo.innerHTML = `
+                    <div class="alert alert-danger alert-sm">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        파일 크기가 50MB를 초과합니다. (${fileSize}MB)
+                    </div>
+                `;
+                e.target.value = ''; // 파일 선택 초기화
+            } else {
+                let previewHtml = '';
+                
+                // 이미지인 경우 미리보기 추가
+                if (isImage) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('newImagePreview').innerHTML = `
+                            <div class="text-center mt-2">
+                                <img src="${e.target.result}" alt="새 이미지 미리보기" 
+                                     class="img-fluid rounded shadow-sm" 
+                                     style="max-height: 200px;">
+                            </div>
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    previewHtml = '<div id="newImagePreview"></div>';
+                }
+                
+                fileInfo.innerHTML = `
+                    <div class="alert alert-info alert-sm">
+                        <i class="bi bi-${isImage ? 'image' : 'file-earmark'}"></i>
+                        <strong>${fileName}</strong> (${fileSize}MB)
+                        ${isImage ? '<span class="badge bg-success ms-2">이미지</span>' : ''}
+                    </div>
+                    ${previewHtml}
+                `;
+            }
+        } else {
+            fileInfo.innerHTML = '';
+        }
+    });
+    
+    // 파일 삭제 체크박스와 새 파일 선택 간의 상호작용
+    <% if (post.file_original_name) { %>
+        const removeFileCheckbox = document.getElementById('removeFile');
+        const fileInput = document.getElementById('file');
+        
+        removeFileCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                fileInput.disabled = false;
+            }
+        });
+        
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                removeFileCheckbox.checked = false;
+            }
+        });
+    <% } %>
+</script>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - Z-Net 게시판</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Z-Net 게시판</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/board">게시판</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <% if (locals.user) { %>
+                        <li class="nav-item">
+                            <span class="nav-link">
+                                <i class="bi bi-person-circle"></i> <%= locals.user.username %>님
+                                <% if (locals.user.is_admin) { %>
+                                    <span class="badge bg-danger">관리자</span>
+                                <% } %>
+                            </span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/logout">로그아웃</a>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/login">로그인</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/register">회원가입</a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <% if (locals.success_msg && locals.success_msg.length > 0) { %>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <%= locals.success_msg %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <% } %>
+        
+        <% if (locals.error_msg && locals.error_msg.length > 0) { %>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <%= locals.error_msg %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <% } %>
+
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="card shadow">
+                    <div class="card-body p-4">
+                        <h3 class="card-title text-center mb-4">회원가입</h3>
+                        
+                        <form action="/auth/register" method="POST" id="registerForm">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">아이디</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="username" name="username" 
+                                           required minlength="3" maxlength="50">
+                                    <button type="button" class="btn btn-outline-secondary" id="checkUsernameBtn">
+                                        중복확인
+                                    </button>
+                                </div>
+                                <div class="form-text">3자 이상 50자 이하로 입력해주세요.</div>
+                                <div id="usernameResult" class="mt-2"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="password" class="form-label">비밀번호</label>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       required minlength="1" maxlength="10">
+                                <div class="form-text">1자 이상 10자 이하로 입력해주세요.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="password_confirm" class="form-label">비밀번호 확인</label>
+                                <input type="password" class="form-control" id="password_confirm" 
+                                       name="password_confirm" required>
+                            </div>
+                            
+                            <div class="d-grid mb-3">
+                                <button type="submit" class="btn btn-primary" id="submitBtn" disabled>회원가입</button>
+                            </div>
+                            
+                            <div class="text-center">
+                                <span class="text-muted">이미 계정이 있으신가요?</span>
+                                <a href="/auth/login" class="text-decoration-none">로그인</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        let isUsernameChecked = false;
+        let isUsernameAvailable = false;
+        
+        // 중복 확인 버튼 클릭
+        document.getElementById('checkUsernameBtn').addEventListener('click', function() {
+            const username = document.getElementById('username').value.trim();
+            const resultDiv = document.getElementById('usernameResult');
+            const checkBtn = this;
+            
+            if (!username) {
+                showResult(resultDiv, '아이디를 입력해주세요.', 'danger');
+                return;
+            }
+            
+            if (username.length < 3 || username.length > 50) {
+                showResult(resultDiv, '아이디는 3자 이상 50자 이하로 입력해주세요.', 'danger');
+                return;
+            }
+            
+            // 버튼 비활성화 및 로딩 표시
+            checkBtn.disabled = true;
+            checkBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 확인중...';
+            
+            // AJAX 요청
+            fetch('/auth/check-username', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username: username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.available) {
+                    showResult(resultDiv, data.message, 'success');
+                    isUsernameChecked = true;
+                    isUsernameAvailable = true;
+                } else {
+                    showResult(resultDiv, data.message, 'danger');
+                    isUsernameChecked = true;
+                    isUsernameAvailable = false;
+                }
+                updateSubmitButton();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showResult(resultDiv, '중복 확인 중 오류가 발생했습니다.', 'danger');
+                isUsernameChecked = false;
+                isUsernameAvailable = false;
+                updateSubmitButton();
+            })
+            .finally(() => {
+                // 버튼 복원
+                checkBtn.disabled = false;
+                checkBtn.innerHTML = '중복확인';
+            });
+        });
+        
+        // 아이디 입력 시 중복 확인 상태 리셋
+        document.getElementById('username').addEventListener('input', function() {
+            isUsernameChecked = false;
+            isUsernameAvailable = false;
+            document.getElementById('usernameResult').innerHTML = '';
+            updateSubmitButton();
+        });
+        
+        // 결과 표시 함수
+        function showResult(element, message, type) {
+            const className = type === 'success' ? 'text-success' : 'text-danger';
+            const icon = type === 'success' ? '✓' : '✗';
+            element.innerHTML = `<small class="${className}"><strong>${icon} ${message}</strong></small>`;
+        }
+        
+        // 제출 버튼 활성화/비활성화
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = !(isUsernameChecked && isUsernameAvailable);
+        }
+        
+        // 비밀번호 확인 검증
+        document.getElementById('password_confirm').addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = this.value;
+            
+            if (password !== confirmPassword) {
+                this.setCustomValidity('비밀번호가 일치하지 않습니다.');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+        
+        // 폼 제출 시 최종 검증
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            if (!isUsernameChecked || !isUsernameAvailable) {
+                e.preventDefault();
+                alert('아이디 중복 확인을 먼저 해주세요.');
+                return false;
+            }
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('password_confirm').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('비밀번호가 일치하지 않습니다.');
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

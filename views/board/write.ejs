@@ -1,0 +1,102 @@
+<%- include('../partials/header', { title: '게시글 작성', activePage: 'board' }) %>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4">게시글 작성</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                <form action="/board/write" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">제목</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               required maxlength="200" autofocus>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">내용</label>
+                        <textarea class="form-control" id="content" name="content" 
+                                  rows="10" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="file" class="form-label">첨부파일</label>
+                        <input type="file" class="form-control" id="file" name="file">
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            최대 50MB까지 업로드 가능합니다.
+                        </div>
+                        <div id="fileInfo" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="/board" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> 목록으로
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> 작성하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 파일 선택 시 정보 표시 및 이미지 미리보기
+    document.getElementById('file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const fileInfo = document.getElementById('fileInfo');
+        
+        if (file) {
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+            const fileName = file.name;
+            const fileExt = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+            const isImage = imageExtensions.includes(fileExt);
+            
+            if (file.size > 50 * 1024 * 1024) { // 50MB 초과
+                fileInfo.innerHTML = `
+                    <div class="alert alert-danger alert-sm">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        파일 크기가 50MB를 초과합니다. (${fileSize}MB)
+                    </div>
+                `;
+                e.target.value = ''; // 파일 선택 초기화
+            } else {
+                let previewHtml = '';
+                
+                // 이미지인 경우 미리보기 추가
+                if (isImage) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('imagePreview').innerHTML = `
+                            <div class="text-center mt-2">
+                                <img src="${e.target.result}" alt="미리보기" 
+                                     class="img-fluid rounded shadow-sm" 
+                                     style="max-height: 200px;">
+                            </div>
+                        `;
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    previewHtml = '<div id="imagePreview"></div>';
+                }
+                
+                fileInfo.innerHTML = `
+                    <div class="alert alert-info alert-sm">
+                        <i class="bi bi-${isImage ? 'image' : 'file-earmark'}"></i>
+                        <strong>${fileName}</strong> (${fileSize}MB)
+                        ${isImage ? '<span class="badge bg-success ms-2">이미지</span>' : ''}
+                    </div>
+                    ${previewHtml}
+                `;
+            }
+        } else {
+            fileInfo.innerHTML = '';
+        }
+    });
+</script>
+
+<%- include('../partials/footer') %>
