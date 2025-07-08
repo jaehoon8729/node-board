@@ -4,14 +4,14 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const flash = require('express-flash');
 const path = require('path');
-const helmet = require('helmet');
+// const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 보안 미들웨어
-app.use(helmet({
+// 보안 미들웨어 (HTTPS 강제 기능 완전 비활성화)
+/*app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
@@ -20,8 +20,22 @@ app.use(helmet({
             imgSrc: ["'self'", "data:", "https:"],
             fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
         },
+        upgradeInsecureRequests: false, // HTTP 요청을 HTTPS로 업그레이드 비활성화
     },
-}));
+    hsts: false, // HSTS 완전 비활성화
+    crossOriginEmbedderPolicy: false, // 추가 보안 정책 비활성화
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    dnsPrefetchControl: false,
+    frameguard: false,
+    hidePoweredBy: false,
+    ieNoOpen: false,
+    noSniff: false,
+    originAgentCluster: false,
+    permittedCrossDomainPolicies: false,
+    referrerPolicy: false,
+    xssFilter: false,
+}));*/
 
 // Rate Limiting (DOS 공격 방지)
 const limiter = rateLimit({
@@ -37,6 +51,26 @@ const authLimiter = rateLimit({
     max: 5, // 15분당 최대 5번 로그인 시도
     message: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.',
     skipSuccessfulRequests: true,
+});
+
+// HTTP 강제 미들웨어 (HTTPS 리디렉션 방지)
+app.use((req, res, next) => {
+    // 모든 응답 헤더에 HTTP 강제 설정
+    res.setHeader('Strict-Transport-Security', 'max-age=0; includeSubDomains');
+    
+    // X-Forwarded-Proto 헤더 체크 (프록시 환경에서)
+    if (req.header('x-forwarded-proto') === 'https') {
+        res.redirect(301, 'http://' + req.header('host') + req.url);
+        return;
+    }
+    
+    // 직접 HTTPS 요청 체크
+    if (req.secure || req.protocol === 'https') {
+        res.redirect(301, 'http://' + req.header('host') + req.url);
+        return;
+    }
+    
+    next();
 });
 
 app.use(limiter);
@@ -61,7 +95,7 @@ app.use(session({
     saveUninitialized: false,
     name: 'sessionId', // 기본 세션 이름 변경
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // HTTP에서 작동하도록 false로 설정
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24, // 24시간
         sameSite: 'strict' // CSRF 방지
