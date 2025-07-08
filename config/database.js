@@ -1,6 +1,7 @@
 const { Sequelize } = require('sequelize');
 
 // 환경변수 로드 확인
+require("dotenv").config({ path: "/app/.env" })
 if (!process.env.DB_NAME) {
     console.error('⚠️  .env 파일에서 데이터베이스 설정을 찾을 수 없습니다.');
     console.error('DB_NAME, DB_USER, DB_PASSWORD, DB_HOST 환경변수를 설정해주세요.');

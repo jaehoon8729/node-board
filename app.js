@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config({ path: "/app/.env" })
 const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
@@ -110,9 +110,9 @@ app.use((err, req, res, next) => {
         status: 500 
     });
 });
-
+console.log("서버시작")
 // 서버 시작
-db.sequelize.sync({ force: false }).then(() => {
+db.sequelize.sync({ force: true }).then(() => {
     console.log('데이터베이스 연결 성공');
     
     // 스케줄러 시작
