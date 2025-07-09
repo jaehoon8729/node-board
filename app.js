@@ -4,38 +4,16 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const flash = require('express-flash');
 const path = require('path');
-// const helmet = require('helmet');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 보안 미들웨어 (HTTPS 강제 기능 완전 비활성화)
-/*app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net", "https://code.jquery.com"],
-            imgSrc: ["'self'", "data:", "https:"],
-            fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
-        },
-        upgradeInsecureRequests: false, // HTTP 요청을 HTTPS로 업그레이드 비활성화
-    },
-    hsts: false, // HSTS 완전 비활성화
-    crossOriginEmbedderPolicy: false, // 추가 보안 정책 비활성화
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: false,
-    dnsPrefetchControl: false,
-    frameguard: false,
-    hidePoweredBy: false,
-    ieNoOpen: false,
-    noSniff: false,
-    originAgentCluster: false,
-    permittedCrossDomainPolicies: false,
-    referrerPolicy: false,
-    xssFilter: false,
-}));*/
+app.use(helmet({
+    strictTransportSecurity: false  // HTTPS 강제 기능 비활성화
+}));
 
 // Rate Limiting (DOS 공격 방지)
 const limiter = rateLimit({
@@ -146,7 +124,7 @@ app.use((err, req, res, next) => {
 });
 console.log("서버시작")
 // 서버 시작
-db.sequelize.sync({ force: true }).then(() => {
+db.sequelize.sync({ force: false }).then(() => {
     console.log('데이터베이스 연결 성공');
     
     // 스케줄러 시작
