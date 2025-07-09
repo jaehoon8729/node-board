@@ -4,16 +4,10 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const flash = require('express-flash');
 const path = require('path');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// 보안 미들웨어 (HTTPS 강제 기능 완전 비활성화)
-app.use(helmet({
-    strictTransportSecurity: false  // HTTPS 강제 기능 비활성화
-}));
 
 // Rate Limiting (DOS 공격 방지)
 const limiter = rateLimit({
