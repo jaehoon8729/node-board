@@ -167,7 +167,7 @@ router.get('/api/posts', isAdmin, async (req, res) => {
             posts: posts.map(post => ({
                 id: post.id,
                 title: post.title,
-                username: post.user.username,
+                username: post.custom_author || post.user.username,
                 status: post.status,
                 publish_at: post.publish_at,
                 created_at: post.created_at,

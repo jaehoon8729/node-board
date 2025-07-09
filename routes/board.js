@@ -117,11 +117,19 @@ router.get('/', async (req, res) => {
         // 게시글 조회
         const { count, rows: posts } = await Post.findAndCountAll({
             where: whereClause,
-            include: [{
-                model: User,
-                as: 'user',
-                attributes: ['username']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['username']
+                },
+                {
+                    model: Comment,
+                    as: 'comments',
+                    attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
+                    required: false
+                }
+            ],
             order: [['created_at', 'DESC']],
             limit,
             offset
@@ -173,11 +181,19 @@ router.get('/api/posts', async (req, res) => {
         // 게시글 조회
         const { count, rows: posts } = await Post.findAndCountAll({
             where: whereClause,
-            include: [{
-                model: User,
-                as: 'user',
-                attributes: ['username']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['username']
+                },
+                {
+                    model: Comment,
+                    as: 'comments',
+                    attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
+                    required: false
+                }
+            ],
             order: [['created_at', 'DESC']],
             limit,
             offset
@@ -191,10 +207,11 @@ router.get('/api/posts', async (req, res) => {
             posts: posts.map(post => ({
                 id: post.id,
                 title: post.title,
-                username: post.user.username,
+                username: post.custom_author || post.user.username,
                 created_at: post.created_at,
                 views: post.views,
-                file_original_name: post.file_original_name
+                file_original_name: post.file_original_name,
+                comment_count: post.comments.length
             })),
             hasMore,
             currentPage: page,
@@ -218,7 +235,7 @@ router.get('/write', isAuthenticated, (req, res) => {
 // 게시글 작성 처리
 router.post('/write', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
-        let { title, content, publishType, scheduleDate, scheduleTime } = req.body;
+        let { title, content, publishType, scheduleDate, scheduleTime, customAuthor } = req.body;
         
         // XSS 방지를 위한 입력값 sanitize
         title = sanitizeInput(title);
@@ -241,6 +258,11 @@ router.post('/write', isAuthenticated, upload.single('file'), async (req, res) =
             user_id: req.session.user.id,
             status: 'published' // 기본값은 즉시 발행
         };
+        
+        // 관리자인 경우 사용자 정의 작성자명 처리
+        if (req.session.user.is_admin && customAuthor && customAuthor.trim()) {
+            postData.custom_author = customAuthor.trim();
+        }
         
         // 예약 발행은 관리자만 가능
         if (publishType === 'schedule' && req.session.user.is_admin) {
@@ -325,7 +347,7 @@ router.get('/:id', async (req, res) => {
                         as: 'user',
                         attributes: ['username']
                     }],
-                    order: [['created_at', 'DESC']]
+                    order: [['created_at', 'ASC']]
                 }
             ]
         });
@@ -397,7 +419,7 @@ router.get('/:id/edit', isAuthenticated, async (req, res) => {
 // 게시글 수정 처리
 router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
-        let { title, content, removeFile } = req.body;
+        let { title, content, removeFile, customAuthor } = req.body;
         const post = await Post.findByPk(req.params.id);
         
         if (!post) {
@@ -428,6 +450,15 @@ router.post('/:id/edit', isAuthenticated, upload.single('file'), async (req, res
         
         // 업데이트할 데이터 준비
         const updateData = { title, content };
+        
+        // 관리자인 경우 사용자 정의 작성자명 처리
+        if (req.session.user.is_admin) {
+            if (customAuthor && customAuthor.trim()) {
+                updateData.custom_author = customAuthor.trim();
+            } else {
+                updateData.custom_author = null; // 빈 값인 경우 null로 설정
+            }
+        }
         
         // 기존 파일 삭제 요청이 있는 경우
         if (removeFile === 'true' && post.file_path) {

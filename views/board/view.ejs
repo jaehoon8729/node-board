@@ -30,7 +30,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between text-muted mb-3">
                     <div>
-                        <i class="bi bi-person"></i> <%= post.user.username %>
+                        <i class="bi bi-person"></i> <%= post.custom_author || post.user.username %>
                     </div>
                     <div>
                         <span class="me-3">
@@ -234,7 +234,7 @@
                     if (noComments) noComments.remove();
                     
                     const commentHtml = createCommentHtml(data.comment);
-                    commentList.insertAdjacentHTML('afterbegin', commentHtml);
+                    commentList.insertAdjacentHTML('beforeend', commentHtml);
                     
                     // 폼 초기화
                     document.getElementById('comment-content').value = '';

@@ -13,6 +13,20 @@
                                value="<%= post.title %>" required maxlength="200">
                     </div>
                     
+                    <!-- 관리자만 작성자명 변경 가능 -->
+                    <% if (locals.user && locals.user.is_admin) { %>
+                        <div class="mb-3">
+                            <label for="customAuthor" class="form-label">작성자명</label>
+                            <input type="text" class="form-control" id="customAuthor" name="customAuthor" 
+                                   value="<%= post.custom_author || '' %>"
+                                   placeholder="작성자명을 입력하세요 (비워두면 기본 사용자명 사용)" maxlength="50">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                관리자만 작성자명을 변경할 수 있습니다. 비워두면 '<%= post.user.username %>'로 표시됩니다.
+                            </div>
+                        </div>
+                    <% } %>
+                    
                     <div class="mb-3">
                         <label for="content" class="form-label">내용</label>
                         <textarea class="form-control" id="content" name="content" 

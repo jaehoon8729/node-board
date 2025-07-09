@@ -30,6 +30,11 @@ module.exports = (sequelize) => {
                 key: 'id'
             }
         },
+        custom_author: {
+            type: DataTypes.STRING(50),
+            allowNull: true,
+            comment: '관리자가 지정한 사용자 정의 작성자명'
+        },
         file_original_name: {
             type: DataTypes.STRING(255),
             allowNull: true,
