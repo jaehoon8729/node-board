@@ -115,9 +115,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('scheduleDate').min = today;
         
-        // 기본값 설정 (현재 시간 + 1시간)
+        // 기본값 설정 (현재 시간)
         const now = new Date();
-        now.setHours(now.getHours() + 1);
         document.getElementById('scheduleDate').value = now.toISOString().split('T')[0];
         document.getElementById('scheduleTime').value = now.toTimeString().slice(0, 5);
         
