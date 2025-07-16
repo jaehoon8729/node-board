@@ -11,7 +11,7 @@ class PostScheduler {
     init() {
         // 매분마다 예약된 게시글 확인 (실제 운영에서는 5분 또는 10분 간격 권장)
         // this.job = cron.schedule('*/5 * * * *', async () => {
-        this.job = cron.schedule('* * * * *', async () => {
+        this.job = cron.schedule('*/10 * * * *', async () => {
             await this.publishScheduledPosts();
         }, {
             scheduled: false // 처음에는 비활성화
