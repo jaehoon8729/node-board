@@ -104,35 +104,41 @@ router.get('/', async (req, res) => {
             status: 'published' // 발행된 게시글만 표시
         };
         
+        let includeOptions = [
+            {
+                model: User,
+                as: 'user',
+                attributes: ['username']
+            },
+            {
+                model: Comment,
+                as: 'comments',
+                attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
+                required: false
+            }
+        ];
+        
+        // 검색 조건 처리
         if (search) {
             if (searchType === 'title') {
                 whereClause.title = { [Op.like]: `%${search}%` };
             } else if (searchType === 'content') {
                 whereClause.content = { [Op.like]: `%${search}%` };
             } else if (searchType === 'author') {
-                whereClause['$user.username$'] = { [Op.like]: `%${search}%` };
+                // author 검색은 별도로 처리
+                includeOptions[0].where = { username: { [Op.like]: `%${search}%` } };
+                includeOptions[0].required = true; // INNER JOIN으로 변경
             }
         }
         
         // 게시글 조회
         const { count, rows: posts } = await Post.findAndCountAll({
             where: whereClause,
-            include: [
-                {
-                    model: User,
-                    as: 'user',
-                    attributes: ['username']
-                },
-                {
-                    model: Comment,
-                    as: 'comments',
-                    attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
-                    required: false
-                }
-            ],
+            include: includeOptions,
             order: [['created_at', 'DESC']],
             limit,
-            offset
+            offset,
+            distinct: true  // 중복 제거로 정확한 count 계산
         });
         
         const totalPages = Math.ceil(count / limit);
@@ -144,7 +150,8 @@ router.get('/', async (req, res) => {
             totalPages,
             hasMore,
             search,
-            searchType
+            searchType,
+            totalCount: count
         });
         
     } catch (error) {
@@ -168,35 +175,41 @@ router.get('/api/posts', async (req, res) => {
             status: 'published'
         };
         
+        let includeOptions = [
+            {
+                model: User,
+                as: 'user',
+                attributes: ['username']
+            },
+            {
+                model: Comment,
+                as: 'comments',
+                attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
+                required: false
+            }
+        ];
+        
+        // 검색 조건 처리
         if (search) {
             if (searchType === 'title') {
                 whereClause.title = { [Op.like]: `%${search}%` };
             } else if (searchType === 'content') {
                 whereClause.content = { [Op.like]: `%${search}%` };
             } else if (searchType === 'author') {
-                whereClause['$user.username$'] = { [Op.like]: `%${search}%` };
+                // author 검색은 별도로 처리
+                includeOptions[0].where = { username: { [Op.like]: `%${search}%` } };
+                includeOptions[0].required = true; // INNER JOIN으로 변경
             }
         }
         
         // 게시글 조회
         const { count, rows: posts } = await Post.findAndCountAll({
             where: whereClause,
-            include: [
-                {
-                    model: User,
-                    as: 'user',
-                    attributes: ['username']
-                },
-                {
-                    model: Comment,
-                    as: 'comments',
-                    attributes: ['id'], // 댓글 개수만 세기 위해 id만 선택
-                    required: false
-                }
-            ],
+            include: includeOptions,
             order: [['created_at', 'DESC']],
             limit,
-            offset
+            offset,
+            distinct: true  // 중복 제거로 정확한 count 계산
         });
         
         const totalPages = Math.ceil(count / limit);
@@ -204,18 +217,20 @@ router.get('/api/posts', async (req, res) => {
         
         res.json({
             success: true,
-            posts: posts.map(post => ({
+            posts: posts.map((post, index) => ({
                 id: post.id,
                 title: post.title,
                 username: post.custom_author || post.user.username,
                 created_at: post.created_at,
                 views: post.views,
                 file_original_name: post.file_original_name,
-                comment_count: post.comments.length
+                comment_count: post.comments.length,
+                row_number: count - ((page - 1) * limit) - index  // 페이징 번호 계산
             })),
             hasMore,
             currentPage: page,
-            totalPages
+            totalPages,
+            totalCount: count
         });
         
     } catch (error) {

@@ -115,7 +115,7 @@
                     <% } else { %>
                         <% posts.forEach((post, index) => { %>
                             <tr>
-                                <td><%= post.id %></td>
+                                <td><%= totalCount - ((currentPage - 1) * 10) - index %></td>
                                 <td>
                                     <a href="/board/<%= post.id %>" class="text-decoration-none">
                                         <%= post.title %>
@@ -172,6 +172,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let currentPage = <%= currentPage %>;
+    let totalCount = <%= totalCount %>;
     let isLoading = false;
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     const loadingSpinner = document.getElementById('loadingSpinner');
@@ -208,6 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                         
                         currentPage = nextPage;
+                        totalCount = data.totalCount || totalCount;
                         
                         // 더 불러올 게시글이 있는지 확인
                         if (data.hasMore) {
@@ -267,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const createdDate = new Date(post.created_at).toLocaleDateString();
         
         row.innerHTML = `
-            <td>${post.id}</td>
+            <td>${post.row_number}</td>
             <td>
                 <a href="/board/${post.id}" class="text-decoration-none">
                     ${post.title}
