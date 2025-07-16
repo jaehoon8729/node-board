@@ -114,6 +114,18 @@
                 <% if (locals.user) { %>
                     <div class="mb-4">
                         <form id="comment-form">
+                            <!-- 관리자인 경우 작성자 선택 -->
+                            <% if (locals.user.is_admin) { %>
+                                <div class="mb-2">
+                                    <label for="comment-author" class="form-label">작성자 선택:</label>
+                                    <select class="form-select" id="comment-author" name="custom_author">
+                                        <option value="">본인 계정 (<%= locals.user.username %>)</option>
+                                        <option value="" disabled>─────────────────────────</option>
+                                        <!-- 사용자 목록은 JavaScript로 로드 -->
+                                    </select>
+                                </div>
+                            <% } %>
+                            
                             <div class="mb-2">
                                 <textarea class="form-control" id="comment-content" rows="3" 
                                           placeholder="댓글을 입력하세요..." required></textarea>
@@ -140,7 +152,7 @@
                             <div class="comment-item border-bottom pb-3 mb-3" data-comment-id="<%= comment.id %>">
                                 <div class="d-flex justify-content-between">
                                     <div>
-                                        <strong><%= comment.user.username %></strong>
+                                        <strong><%= comment.custom_author || comment.user.username %></strong>
                                         <small class="text-muted ms-2">
                                             <%= new Date(comment.created_at).toLocaleString() %>
                                         </small>
@@ -148,7 +160,8 @@
                                     <% if (locals.user && (locals.user.id === comment.user_id || locals.user.is_admin)) { %>
                                         <div>
                                             <button class="btn btn-sm btn-link edit-comment" 
-                                                    data-comment-id="<%= comment.id %>">수정</button>
+                                                    data-comment-id="<%= comment.id %>"
+                                                    data-custom-author="<%= comment.custom_author || '' %>">수정</button>
                                             <button class="btn btn-sm btn-link text-danger delete-comment" 
                                                     data-comment-id="<%= comment.id %>">삭제</button>
                                         </div>
@@ -156,6 +169,16 @@
                                 </div>
                                 <div class="comment-content mt-2"><%= comment.content %></div>
                                 <div class="comment-edit-form d-none">
+                                    <% if (locals.user.is_admin) { %>
+                                        <div class="mb-2">
+                                            <label class="form-label">작성자 선택:</label>
+                                            <select class="form-select edit-author-select" name="custom_author">
+                                                <option value="">본인 계정 (<%= locals.user.username %>)</option>
+                                                <option value="" disabled>─────────────────────────</option>
+                                                <!-- 사용자 목록은 JavaScript로 로드 -->
+                                            </select>
+                                        </div>
+                                    <% } %>
                                     <textarea class="form-control mb-2" rows="3"><%= comment.content %></textarea>
                                     <div class="text-end">
                                         <button class="btn btn-sm btn-secondary cancel-edit">취소</button>
@@ -199,6 +222,45 @@
     const currentUserId = <%= locals.user ? locals.user.id : 'null' %>;
     const isAdmin = <%= locals.user && locals.user.is_admin ? 'true' : 'false' %>;
     
+    let users = []; // 관리자용 사용자 목록
+    
+    // 관리자인 경우 사용자 목록 로드
+    if (isAdmin) {
+        loadUsers();
+    }
+    
+    async function loadUsers() {
+        try {
+            const response = await fetch('/api/comments/users');
+            const data = await response.json();
+            
+            if (data.success) {
+                users = data.users;
+                populateUserSelects();
+            }
+        } catch (error) {
+            console.error('사용자 목록 로드 실패:', error);
+        }
+    }
+    
+    function populateUserSelects() {
+        const selects = document.querySelectorAll('#comment-author, .edit-author-select');
+        selects.forEach(select => {
+            // 기존 사용자 옵션 제거 (첫 번째와 구분선은 유지)
+            while (select.children.length > 2) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // 사용자 목록 추가
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.username;
+                option.textContent = user.username;
+                select.appendChild(option);
+            });
+        });
+    }
+    
     // 이미지 모달 열기 함수
     function openImageModal(imageSrc, imageName) {
         const modal = new bootstrap.Modal(document.getElementById('imageModal'));
@@ -215,6 +277,15 @@
             e.preventDefault();
             
             const content = document.getElementById('comment-content').value;
+            const requestData = { post_id: postId, content };
+            
+            // 관리자인 경우 작성자 선택 값 추가
+            if (isAdmin) {
+                const customAuthor = document.getElementById('comment-author').value;
+                if (customAuthor) {
+                    requestData.custom_author = customAuthor;
+                }
+            }
             
             try {
                 const response = await fetch('/api/comments', {
@@ -222,7 +293,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ post_id: postId, content })
+                    body: JSON.stringify(requestData)
                 });
                 
                 const data = await response.json();
@@ -236,8 +307,16 @@
                     const commentHtml = createCommentHtml(data.comment);
                     commentList.insertAdjacentHTML('beforeend', commentHtml);
                     
+                    // 새로 추가된 댓글의 수정 폼에도 사용자 목록 추가
+                    if (isAdmin) {
+                        populateUserSelects();
+                    }
+                    
                     // 폼 초기화
                     document.getElementById('comment-content').value = '';
+                    if (isAdmin) {
+                        document.getElementById('comment-author').value = '';
+                    }
                     
                     // 댓글 수 업데이트
                     const countEl = document.getElementById('comment-count');
@@ -255,18 +334,34 @@
     function createCommentHtml(comment) {
         const date = new Date(comment.created_at).toLocaleString();
         const canEdit = currentUserId === comment.user_id || isAdmin;
+        const authorName = comment.custom_author || comment.user.username;
+        
+        let editAuthorSelect = '';
+        if (isAdmin) {
+            editAuthorSelect = `
+                <div class="mb-2">
+                    <label class="form-label">작성자 선택:</label>
+                    <select class="form-select edit-author-select" name="custom_author">
+                        <option value="">본인 계정 (${comment.user.username})</option>
+                        <option value="" disabled>─────────────────────────</option>
+                        <!-- 사용자 목록은 JavaScript로 로드 -->
+                    </select>
+                </div>
+            `;
+        }
         
         return `
             <div class="comment-item border-bottom pb-3 mb-3" data-comment-id="${comment.id}">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <strong>${comment.user.username}</strong>
+                        <strong>${authorName}</strong>
                         <small class="text-muted ms-2">${date}</small>
                     </div>
                     ${canEdit ? `
                         <div>
                             <button class="btn btn-sm btn-link edit-comment" 
-                                    data-comment-id="${comment.id}">수정</button>
+                                    data-comment-id="${comment.id}"
+                                    data-custom-author="${comment.custom_author || ''}">수정</button>
                             <button class="btn btn-sm btn-link text-danger delete-comment" 
                                     data-comment-id="${comment.id}">삭제</button>
                         </div>
@@ -274,6 +369,7 @@
                 </div>
                 <div class="comment-content mt-2">${comment.content}</div>
                 <div class="comment-edit-form d-none">
+                    ${editAuthorSelect}
                     <textarea class="form-control mb-2" rows="3">${comment.content}</textarea>
                     <div class="text-end">
                         <button class="btn btn-sm btn-secondary cancel-edit">취소</button>
@@ -290,8 +386,18 @@
         // 수정 버튼 클릭
         if (e.target.classList.contains('edit-comment')) {
             const commentItem = e.target.closest('.comment-item');
+            const customAuthor = e.target.dataset.customAuthor;
+            
             commentItem.querySelector('.comment-content').classList.add('d-none');
             commentItem.querySelector('.comment-edit-form').classList.remove('d-none');
+            
+            // 관리자인 경우 작성자 선택 값 설정
+            if (isAdmin) {
+                const authorSelect = commentItem.querySelector('.edit-author-select');
+                if (authorSelect) {
+                    authorSelect.value = customAuthor || '';
+                }
+            }
         }
         
         // 수정 취소
@@ -307,19 +413,42 @@
             const commentItem = e.target.closest('.comment-item');
             const content = commentItem.querySelector('textarea').value;
             
+            const requestData = { content };
+            
+            // 관리자인 경우 작성자 선택 값 추가
+            if (isAdmin) {
+                const authorSelect = commentItem.querySelector('.edit-author-select');
+                if (authorSelect) {
+                    requestData.custom_author = authorSelect.value;
+                }
+            }
+            
             try {
                 const response = await fetch(`/api/comments/${commentId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ content })
+                    body: JSON.stringify(requestData)
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
+                    // 댓글 내용 업데이트
                     commentItem.querySelector('.comment-content').textContent = content;
+                    
+                    // 작성자명 업데이트
+                    const authorElement = commentItem.querySelector('strong');
+                    const newAuthor = requestData.custom_author || data.comment.user?.username || '알 수 없음';
+                    authorElement.textContent = newAuthor;
+                    
+                    // 수정 버튼의 데이터 속성 업데이트
+                    const editBtn = commentItem.querySelector('.edit-comment');
+                    if (editBtn) {
+                        editBtn.dataset.customAuthor = requestData.custom_author || '';
+                    }
+                    
                     commentItem.querySelector('.comment-content').classList.remove('d-none');
                     commentItem.querySelector('.comment-edit-form').classList.add('d-none');
                 } else {

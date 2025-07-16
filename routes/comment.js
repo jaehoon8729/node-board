@@ -10,10 +10,39 @@ const isAuthenticated = (req, res, next) => {
     next();
 };
 
+// 관리자 체크 미들웨어
+const isAdmin = (req, res, next) => {
+    if (!req.session.user || !req.session.user.is_admin) {
+        return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+    }
+    next();
+};
+
+// 모든 사용자 목록 (관리자용)
+router.get('/users', isAdmin, async (req, res) => {
+    try {
+        const users = await User.findAll({
+            attributes: ['id', 'username'],
+            order: [['username', 'ASC']]
+        });
+        
+        res.json({
+            success: true,
+            users
+        });
+    } catch (error) {
+        console.error('사용자 목록 조회 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '사용자 목록을 불러오는데 실패했습니다.'
+        });
+    }
+});
+
 // 댓글 작성
 router.post('/', isAuthenticated, async (req, res) => {
     try {
-        const { post_id, content } = req.body;
+        const { post_id, content, custom_author } = req.body;
         
         if (!content || !content.trim()) {
             return res.status(400).json({ 
@@ -22,11 +51,19 @@ router.post('/', isAuthenticated, async (req, res) => {
             });
         }
         
-        const comment = await Comment.create({
+        // 댓글 데이터 준비
+        const commentData = {
             content: content.trim(),
             post_id,
             user_id: req.session.user.id
-        });
+        };
+        
+        // 관리자가 작성자를 선택했을 경우
+        if (req.session.user.is_admin && custom_author) {
+            commentData.custom_author = custom_author;
+        }
+        
+        const comment = await Comment.create(commentData);
         
         // 작성한 댓글 정보를 다시 조회 (사용자 정보 포함)
         const newComment = await Comment.findByPk(comment.id, {
@@ -56,7 +93,7 @@ router.post('/', isAuthenticated, async (req, res) => {
 router.put('/:id', isAuthenticated, async (req, res) => {
     try {
         const commentId = req.params.id;
-        const { content } = req.body;
+        const { content, custom_author } = req.body;
         
         if (!content || !content.trim()) {
             return res.status(400).json({ 
@@ -82,7 +119,15 @@ router.put('/:id', isAuthenticated, async (req, res) => {
             });
         }
         
-        await comment.update({ content: content.trim() });
+        // 수정 데이터 준비
+        const updateData = { content: content.trim() };
+        
+        // 관리자가 작성자를 변경했을 경우
+        if (req.session.user.is_admin && custom_author !== undefined) {
+            updateData.custom_author = custom_author || null;
+        }
+        
+        await comment.update(updateData);
         
         res.json({ 
             success: true, 
