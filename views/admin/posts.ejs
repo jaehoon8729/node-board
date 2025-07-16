@@ -180,12 +180,6 @@
                                             </button>
                                         <% } else { %>
                                             <!-- 발행된 게시글 액션 -->
-                                            <a href="/board/<%= post.id %>" class="btn btn-outline-info btn-sm" title="보기">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <a href="/board/<%= post.id %>/edit" class="btn btn-outline-primary btn-sm" title="편집">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
                                             <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
                                                     data-post-id="<%= post.id %>" title="삭제">
                                                 <i class="bi bi-trash"></i>
@@ -377,12 +371,6 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         } else {
             actionButtons = `
-                <a href="/board/${post.id}" class="btn btn-outline-info btn-sm" title="보기">
-                    <i class="bi bi-eye"></i>
-                </a>
-                <a href="/board/${post.id}/edit" class="btn btn-outline-primary btn-sm" title="편집">
-                    <i class="bi bi-pencil"></i>
-                </a>
                 <button type="button" class="btn btn-outline-danger btn-sm delete-post-btn" 
                         data-post-id="${post.id}" title="삭제">
                     <i class="bi bi-trash"></i>
