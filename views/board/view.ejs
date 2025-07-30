@@ -169,7 +169,7 @@
                                 </div>
                                 <div class="comment-content mt-2"><%= comment.content %></div>
                                 <div class="comment-edit-form d-none">
-                                    <% if (locals.user.is_admin) { %>
+                                    <% if (locals.user && locals.user.is_admin) { %>
                                         <div class="mb-2">
                                             <label class="form-label">작성자 선택:</label>
                                             <select class="form-select edit-author-select" name="custom_author">
