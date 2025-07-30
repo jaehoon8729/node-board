@@ -699,7 +699,9 @@ VALUES
 -- =============================================================================================
 
 -- 비어그릴스의 다음 게시글 및 댓글 INSERT 쿼리 이 이후는 서버 오픈하고나서 예약할 내용
-
+INSERT INTO users (username, password, ip_address, is_admin, created_at, updated_at)
+VALUES
+    ('익명_083', '익명_083123', '1.1.1.1', 0, '2025-01-29 11:00:00', '2025-01-29 11:00:00');
 -- 게시글 작성
 INSERT INTO posts (title, content, user_id, custom_author, status, views, created_at, updated_at)
 VALUES (
