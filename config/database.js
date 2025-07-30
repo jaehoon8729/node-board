@@ -1,7 +1,8 @@
 const { Sequelize } = require('sequelize');
 
 // 환경변수 로드 확인
-require("dotenv").config({ path: "/app/.env" })
+// require("dotenv").config({ path: "/app/.env" })
+require("dotenv").config({ path: ".env" })
 if (!process.env.DB_NAME) {
     console.error('⚠️  .env 파일에서 데이터베이스 설정을 찾을 수 없습니다.');
     console.error('DB_NAME, DB_USER, DB_PASSWORD, DB_HOST 환경변수를 설정해주세요.');
@@ -14,7 +15,7 @@ const dbConfig = {
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT) || 3306,
+    port: parseInt(process.env.DB_PORT) || 3307,
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     timezone: '+09:00',
