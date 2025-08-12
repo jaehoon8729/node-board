@@ -22,7 +22,7 @@
                                    placeholder="작성자명을 입력하세요 (비워두면 기본 사용자명 사용)" maxlength="50">
                             <div class="form-text">
                                 <i class="bi bi-info-circle"></i> 
-                                관리자만 작성자명을 변경할 수 있습니다. 비워두면 '<%= post.user.username %>'로 표시됩니다.
+                                관리자만 작성자명을 변경할 수 있습니다. 비워두면 '<%= locals.user.username || 'admin' %>'로 표시됩니다.
                             </div>
                         </div>
                     <% } %>
